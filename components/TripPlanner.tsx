@@ -22,7 +22,7 @@ interface PreferenceCardProps {
 }
 
 const PreferenceCard: React.FC<PreferenceCardProps> = ({ imageUrl, title, subtitle, onClick, titleFontClass }) => (
-  <div className="text-center cursor-pointer group" onClick={onClick}>
+  <div className="text-center cursor-pointer group transition-all duration-300 ease-in-out transform hover:scale-105 active:scale-95" onClick={onClick}>
     <div className="relative overflow-hidden rounded-2xl shadow-lg group-hover:shadow-xl transition-shadow duration-300">
       <img
         src={imageUrl}
@@ -97,7 +97,10 @@ const TripPlanner: React.FC<TripPlannerProps> = ({ onGeneratePlan, isLoading, er
 
   const handleSelection = (key: string, value: string) => {
     setPreferences(prev => ({...prev, [key]: value }));
-    setStep(prev => prev + 1);
+    // A small delay lets the click animation play before moving to the next step
+    setTimeout(() => {
+        setStep(prev => prev + 1);
+    }, 200);
   };
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -122,7 +125,7 @@ const TripPlanner: React.FC<TripPlannerProps> = ({ onGeneratePlan, isLoading, er
       <main className="container mx-auto px-4 py-12">
         <div className="max-w-4xl mx-auto">
           <div className="w-full bg-gray-200 rounded-full h-2.5 mb-8">
-            <div className="bg-teal-500 h-2.5 rounded-full transition-all duration-500" style={{ width: `${(step / 5) * 100}%` }}></div>
+            <div className="bg-teal-500 h-2.5 rounded-full transition-all duration-500 progress-bar-shimmer" style={{ width: `${(step / 5) * 100}%` }}></div>
           </div>
           
           {step <= questionsData.length && currentQuestion && (

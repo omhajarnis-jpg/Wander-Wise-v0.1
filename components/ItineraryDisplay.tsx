@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { Itinerary, User, DayPlan } from '../types';
 import Footer from './Footer';
+import L from 'leaflet';
+import WeatherForecastDisplay from './WeatherForecastDisplay';
 
 // Icons
 const CalendarIcon = () => (
@@ -23,8 +25,12 @@ const PinIcon = () => (
         <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
     </svg>
 );
+const MapIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
+        <path fillRule="evenodd" d="M12 1.586l-4 4v12.828l4-4V1.586zM3.707 3.293A1 1 0 002 4v12a1 1 0 00.293.707l6 6a1 1 0 001.414 0l6-6A1 1 0 0018 16V4a1 1 0 00-.293-.707l-6-6a1 1 0 00-1.414 0l-6 6z" clipRule="evenodd" />
+    </svg>
+);
 
-// NEW: Storybook Icon
 const StorybookIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
@@ -40,26 +46,21 @@ interface ItineraryDisplayProps {
   user: User | null;
   onLogout: () => void;
   onGoHome: () => void;
-  onGenerateStorybook: () => void; // NEW
-  isGeneratingStorybook: boolean; // NEW
+  onGenerateStorybook: () => void;
+  isGeneratingStorybook: boolean;
 }
 
 const ItineraryDisplay: React.FC<ItineraryDisplayProps> = ({ itinerary, onKnowMore, onBackToPlanner, isLoggedIn, user, onLogout, onGoHome, onGenerateStorybook, isGeneratingStorybook }) => {
-  if (!itinerary) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 text-gray-800">
-        <h2 className="text-2xl font-bold mb-4">No Itinerary Found</h2>
-        <button onClick={onGoHome} className="px-6 py-2 bg-teal-500 text-white font-semibold rounded-lg hover:bg-teal-600">
-          Plan a Trip
-        </button>
-      </div>
-    );
-  }
-
-  const [heroImageUrl, setHeroImageUrl] = useState(itinerary.days[0]?.dayImage || 'https://images.unsplash.com/photo-1501785888041-af3ef285b470?q=80&w=2070&auto=format&fit=crop');
+  const [heroImageUrl, setHeroImageUrl] = useState(itinerary?.days[0]?.dayImage || 'https://images.unsplash.com/photo-1501785888041-af3ef285b470?q=80&w=2070&auto=format&fit=crop');
+  const [isMapVisible, setIsMapVisible] = useState(false);
+  
   const daySectionsRef = useRef<(HTMLElement | null)[]>([]);
+  const mapContainerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<L.Map | null>(null);
 
   useEffect(() => {
+    if (!itinerary) return;
+
     const observerOptions = {
       root: null,
       rootMargin: '0px',
@@ -88,7 +89,46 @@ const ItineraryDisplay: React.FC<ItineraryDisplayProps> = ({ itinerary, onKnowMo
         if (ref) observer.unobserve(ref);
       });
     };
-  }, [itinerary.days]);
+  }, [itinerary]);
+  
+  useEffect(() => {
+    if (isMapVisible && mapContainerRef.current && itinerary && !mapRef.current) {
+        const L = (window as any).L;
+        if (!L) return;
+
+        const map = L.map(mapContainerRef.current).setView([19.7515, 75.7139], 6);
+        
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        const markers: L.Marker[] = [];
+        itinerary.days.forEach(day => {
+            const marker = L.marker([day.coords.lat, day.coords.lng]).addTo(map)
+                .bindPopup(`<b>Day ${day.day}: ${day.title}</b>`);
+            markers.push(marker);
+        });
+        
+        if (markers.length > 0) {
+            const group = L.featureGroup(markers);
+            map.fitBounds(group.getBounds().pad(0.5));
+        }
+
+        mapRef.current = map;
+    }
+  }, [isMapVisible, itinerary]);
+
+
+  if (!itinerary) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 text-gray-800">
+        <h2 className="text-2xl font-bold mb-4">No Itinerary Found</h2>
+        <button onClick={onGoHome} className="px-6 py-2 bg-teal-500 text-white font-semibold rounded-lg hover:bg-teal-600">
+          Plan a Trip
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-gray-900">
@@ -116,11 +156,31 @@ const ItineraryDisplay: React.FC<ItineraryDisplayProps> = ({ itinerary, onKnowMo
           <p className="mt-4 text-xl md:text-2xl text-gray-300">Your personalized adventure awaits!</p>
         </div>
       </div>
+      
+      <div className="bg-gray-800 text-white py-12 px-4">
+        <div className="container mx-auto text-center">
+            <button
+                onClick={() => setIsMapVisible(!isMapVisible)}
+                className="bg-teal-500 hover:bg-teal-600 text-white font-bold py-3 px-6 rounded-full transition-colors inline-flex items-center shadow-lg"
+                aria-controls="map-container"
+                aria-expanded={isMapVisible}
+            >
+                <MapIcon />
+                {isMapVisible ? 'Hide Map View' : 'Show Trip on Map'}
+            </button>
+            {isMapVisible && (
+                <div id="map-container" className="mt-8 animate-fade-in-up-fast max-w-5xl mx-auto">
+                    <div ref={mapContainerRef} className="leaflet-container shadow-2xl"></div>
+                </div>
+            )}
+        </div>
+      </div>
+
+      {itinerary.weatherForecast && <WeatherForecastDisplay forecast={itinerary.weatherForecast} />}
 
       {itinerary.days.map((day, index) => (
         <section 
           key={day.day} 
-          // FIX: The ref callback should not return a value. Changed from `(el) => (...)` to `(el) => { ... }` to ensure a void return.
           ref={(el) => { daySectionsRef.current[index] = el; }}
           className="relative min-h-screen flex items-center justify-center py-20 px-4 bg-cover bg-center bg-fixed"
           style={{ backgroundImage: `url(${day.dayImage})` }}
@@ -186,7 +246,6 @@ const ItineraryDisplay: React.FC<ItineraryDisplayProps> = ({ itinerary, onKnowMo
           </div>
         </section>
       ))}
-       {/* NEW: Floating Action Button for Storybook */}
        <button
         onClick={onGenerateStorybook}
         disabled={isGeneratingStorybook}

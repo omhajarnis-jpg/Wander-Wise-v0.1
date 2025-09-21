@@ -60,29 +60,26 @@ const TripDetailsPage: React.FC<TripDetailsPageProps> = ({ day, onBack, isLogged
     const [isGenerating, setIsGenerating] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
     const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
-    // NEW: State for TTS voices
     const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
     const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
     
-    // NEW: Load available TTS voices from the browser
     useEffect(() => {
         const loadVoices = () => {
             const availableVoices = speechSynthesis.getVoices();
-            const englishVoices = availableVoices.filter(voice => voice.lang.startsWith('en'));
-            setVoices(englishVoices);
-            if (englishVoices.length > 0 && !selectedVoice) {
-                setSelectedVoice(englishVoices[0]); // Set a default voice
+            // Load English and Hindi voices
+            const filteredVoices = availableVoices.filter(voice => voice.lang.startsWith('en') || voice.lang.startsWith('hi'));
+            setVoices(filteredVoices);
+            if (filteredVoices.length > 0 && !selectedVoice) {
+                setSelectedVoice(filteredVoices[0]); // Set a default voice
             }
         };
 
-        // Voices may load asynchronously.
         if (speechSynthesis.onvoiceschanged !== undefined) {
             speechSynthesis.onvoiceschanged = loadVoices;
         }
-        loadVoices(); // Initial attempt
+        loadVoices(); 
 
         return () => {
-            // Cleanup: cancel speech and remove event listener
             if (speechSynthesis.speaking) {
                 speechSynthesis.cancel();
             }
@@ -94,7 +91,6 @@ const TripDetailsPage: React.FC<TripDetailsPageProps> = ({ day, onBack, isLogged
     const handleSelectStory = async (type: StoryType) => {
         if (!day) return;
         
-        // Cancel any currently playing story
         if (speechSynthesis.speaking) {
             speechSynthesis.cancel();
             setIsSpeaking(false);
@@ -121,15 +117,13 @@ const TripDetailsPage: React.FC<TripDetailsPageProps> = ({ day, onBack, isLogged
             speechSynthesis.cancel();
             setIsSpeaking(false);
         } else {
-            // FIX: Ensure a voice is selected before speaking
             if (!selectedVoice) {
                 setError("No narrator voice is selected. Please choose one from the list.");
                 return;
             }
             const utterance = new SpeechSynthesisUtterance(storyContent.text);
-            utterance.voice = selectedVoice; // Use the selected voice
+            utterance.voice = selectedVoice;
             utterance.onend = () => setIsSpeaking(false);
-            // FIX: Improved error handling for speech synthesis
             utterance.onerror = (e: SpeechSynthesisErrorEvent) => {
                 console.error('Speech synthesis error:', e.error);
                 let userMessage = 'Sorry, an audio playback error occurred.';
@@ -217,7 +211,6 @@ const TripDetailsPage: React.FC<TripDetailsPageProps> = ({ day, onBack, isLogged
                                 <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-4">
                                     <div className="mb-4 sm:mb-0">
                                         <h3 className="font-bold text-xl text-gray-800 mb-2">{storyContent.type} Story</h3>
-                                         {/* NEW: Voice selector dropdown */}
                                         {voices.length > 0 && (
                                             <div className="flex items-center">
                                                 <label htmlFor="voice-select" className="text-sm font-medium text-gray-600 mr-2">Narrator:</label>
@@ -232,7 +225,7 @@ const TripDetailsPage: React.FC<TripDetailsPageProps> = ({ day, onBack, isLogged
                                                 >
                                                     {voices.map(voice => (
                                                         <option key={voice.name} value={voice.name}>
-                                                            {voice.name}
+                                                            {voice.name} ({voice.lang})
                                                         </option>
                                                     ))}
                                                 </select>

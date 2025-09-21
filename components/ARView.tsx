@@ -18,7 +18,6 @@ const ARView: React.FC<ARViewProps> = ({ poiName, poiCoords, onClose }) => {
         renderer="antialias: true; alpha: true"
         embedded
       >
-        {/* FIX: Converted to a self-closing tag as it has no children, which is better JSX practice. */}
         <a-camera gps-camera rotation-reader />
         <a-entity gps-entity-place={gpsEntityPlace}>
             <a-text
@@ -30,7 +29,6 @@ const ARView: React.FC<ARViewProps> = ({ poiName, poiCoords, onClose }) => {
                 color="#FFFFFF"
                 width="30"
             >
-                {/* FIX: Converted to a self-closing tag as it has no children, which is better JSX practice. */}
                 <a-entity
                     geometry="primitive: plane; width: auto; height: auto;"
                     material="color: #1A202C; opacity: 0.7;"

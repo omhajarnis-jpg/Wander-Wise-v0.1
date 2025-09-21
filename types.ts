@@ -1,4 +1,5 @@
 
+
 export interface User {
   name: string;
   email: string;
@@ -44,10 +45,24 @@ export interface DayPlan {
   };
 }
 
+// NEW: Add weather forecast types
+export interface DailyForecast {
+  dayOfWeek: string;
+  icon: 'sunny' | 'cloudy' | 'partly-cloudy' | 'rain' | 'storm';
+  highTemp: number;
+  lowTemp: number;
+  description: string;
+}
+
+export interface WeatherForecast {
+  daily: DailyForecast[];
+}
+
 export interface Itinerary {
   tripTitle: string;
   bestTimeToVisit: string;
   days: DayPlan[];
+  weatherForecast?: WeatherForecast;
 }
 
 // NEW: Add Storybook types

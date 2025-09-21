@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Wander Wise - Miles Brings Smiles</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin=""/>
     <style>
       /* For a more modern, clean font */
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
@@ -29,6 +30,23 @@
       .hero-background {
         transition: background-image 0.5s ease-in-out;
       }
+      /* For TripPlanner animations */
+      @keyframes shimmer {
+        0% { background-position: -1000px 0; }
+        100% { background-position: 1000px 0; }
+      }
+      .progress-bar-shimmer {
+        background: linear-gradient(to right, #2DD4BF 40%, #67E8F9 50%, #2DD4BF 60%);
+        background-size: 1000px 100%;
+        animation: shimmer 3s infinite;
+      }
+      /* For Itinerary Map */
+      .leaflet-container {
+        height: 450px;
+        width: 100%;
+        border-radius: 1rem;
+        z-index: 10;
+      }
     </style>
   <script type="importmap">
 {
@@ -36,13 +54,15 @@
     "react/": "https://aistudiocdn.com/react@^19.1.1/",
     "react": "https://aistudiocdn.com/react@^19.1.1",
     "react-dom/": "https://aistudiocdn.com/react-dom@^19.1.1/",
-    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.19.0"
+    "@google/genai": "https://aistudiocdn.com/@google/genai@^1.19.0",
+    "leaflet": "https://unpkg.com/leaflet@1.9.4/dist/leaflet-src.esm.js"
   }
 }
 </script>
 </head>
   <body>
     <div id="root"></div>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
     <script type="module" src="/index.tsx"></script>
   </body>
 </html>

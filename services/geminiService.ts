@@ -1,5 +1,6 @@
+
 import { GoogleGenAI, Type } from "@google/genai";
-import type { TripDetails, Itinerary, Storybook } from '../types';
+import type { TripDetails, Itinerary, Storybook, WeatherForecast } from '../types';
 
 const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
 
@@ -13,8 +14,73 @@ const foodImageDatabase: { [key: string]: string } = {
     'Sabudana Khichdi': 'https://www.indianhealthyrecipes.com/wp-content/uploads/2022/09/sabudana-khichdi-recipe.jpg',
     'Naan Qalia': 'https://i.ytimg.com/vi/i7N8ih_m-18/maxresdefault.jpg',
     'Puran Poli': 'https://www.indianhealthyrecipes.com/wp-content/uploads/2022/02/puran-poli-recipe.jpg',
+    'Solkadhi': 'https://www.indianhealthyrecipes.com/wp-content/uploads/2021/07/sol-kadhi-recipe.jpg',
+    'Konkani seafood curry': 'https://www.archanaskitchen.com/images/archanaskitchen/1-Author/shaheen_ali/Goan_Prawn_Curry_Recipe_with_Coconut.jpg',
+    'Malvani Fish Curry': 'https://www.whiskaffair.com/wp-content/uploads/2020/07/Malvani-Fish-Curry-2-3.jpg',
+    'Kombdi Vade': 'https://static.toiimg.com/thumb/63445862.cms?width=1200&height=900',
     'default': 'https://via.placeholder.com/400?text=Delicious+Food'
 };
+
+export const generateWeatherForecast = async (destinationName: string, timePeriod: string, durationInDays: number): Promise<WeatherForecast> => {
+    const weatherSchema = {
+        type: Type.OBJECT,
+        properties: {
+            daily: {
+                type: Type.ARRAY,
+                description: `An array of daily forecast objects for ${durationInDays} days.`,
+                items: {
+                    type: Type.OBJECT,
+                    properties: {
+                        dayOfWeek: { type: Type.STRING, description: "The abbreviated day of the week, e.g., 'Mon', 'Tue'." },
+                        icon: {
+                            type: Type.STRING,
+                            description: "An icon identifier. Must be one of: 'sunny', 'cloudy', 'partly-cloudy', 'rain', 'storm'.",
+                            enum: ['sunny', 'cloudy', 'partly-cloudy', 'rain', 'storm']
+                        },
+                        highTemp: { type: Type.INTEGER, description: "The high temperature in Celsius." },
+                        lowTemp: { type: Type.INTEGER, description: "The low temperature in Celsius." },
+                        description: { type: Type.STRING, description: "A brief weather description, e.g., 'Clear skies'." }
+                    },
+                    required: ["dayOfWeek", "icon", "highTemp", "lowTemp", "description"]
+                }
+            }
+        },
+        required: ["daily"]
+    };
+
+    const prompt = `
+        You are a weather forecasting AI. Provide a realistic and plausible daily weather forecast for a trip.
+
+        **TRIP DETAILS**
+        - Location: A trip centered around ${destinationName}, Maharashtra.
+        - Time of Year: The recommended time to visit is ${timePeriod}.
+        - Duration: ${durationInDays} days.
+
+        **INSTRUCTIONS**
+        - Generate a day-by-day forecast for the entire duration of the trip.
+        - Ensure the weather is typical for the given location and time of year in Maharashtra. For instance, June-September is monsoon (rainy), while November-February is cooler and dry.
+        - The number of items in the 'daily' array must be exactly ${durationInDays}.
+        - Provide the output in the requested JSON format, adhering strictly to the schema.
+    `;
+
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash",
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+                responseSchema: weatherSchema,
+            },
+        });
+        const jsonText = response.text.trim();
+        return JSON.parse(jsonText) as WeatherForecast;
+    } catch (error) {
+        console.error("Error generating weather forecast:", error);
+        // Return a default or empty forecast to prevent the whole itinerary from failing
+        return { daily: [] };
+    }
+};
+
 
 export const generateItinerary = async (details: TripDetails): Promise<Itinerary> => {
     // Schema for the text model, which should only return text data.
@@ -87,35 +153,61 @@ export const generateItinerary = async (details: TripDetails): Promise<Itinerary
         Here is some expert research on key destinations in Maharashtra. Use this as a primary source of information to create a high-quality, accurate, and appealing itinerary.
 
         ### 1. Mumbai – The City of Dreams
-        *   **Region**: Western Maharashtra
+        *   **Region**: Western Maharashtra / Konkan Coast
         *   **Best Time to Visit**: November to February
+        *   **Vibe**: Modern Cities, Crowded Places
         *   **Key Attractions**: Gateway of India (Lat: 18.9220, Lng: 72.8347), Marine Drive, Chhatrapati Shivaji Maharaj Terminus, Elephanta Caves.
         *   **Local Cuisine**: Vada Pav, Pav Bhaji, Bombil Fry.
 
         ### 2. Pune – The Cultural Capital
         *   **Region**: Western Maharashtra
         *   **Best Time to Visit**: September to February
+        *   **Vibe**: Historical Sites, Modern Cities
         *   **Key Attractions**: Shaniwar Wada (Lat: 18.5196, Lng: 73.8554), Aga Khan Palace, Osho Ashram, Pataleshwar Cave Temple.
         *   **Local Cuisine**: Misal Pav, Bhakarwadi, Sabudana Khichdi.
 
         ### 3. Aurangabad – The Heritage Hub
         *   **Region**: Marathwada
         *   **Best Time to Visit**: October to March
+        *   **Vibe**: Historical Sites, Religious Places
         *   **Key Attractions**: Ajanta Caves, Ellora Caves (Lat: 20.0259, Lng: 75.1773), Bibi Ka Maqbara, Daulatabad Fort.
         *   **Local Cuisine**: Naan Qalia, Puran Poli.
+    
+        ### 4. Ratnagiri – The Jewel of Konkan
+        *   **Region**: Konkan Coast
+        *   **Best Time to Visit**: October to March
+        *   **Vibe**: Beach's and Tropical Regions, Natural Beauty, Peaceful and calm places
+        *   **Key Attractions**: Ganpatipule Beach (Lat: 17.1475, Lng: 73.2682), Ratnadurg Fort, Thibaw Palace, Jaigad Lighthouse.
+        *   **Local Cuisine**: Solkadhi, Konkani seafood curry.
+
+        ### 5. Tarkarli/Malvan – The Coastal Paradise
+        *   **Region**: Konkan Coast (Sindhudurg)
+        *   **Best Time to Visit**: October to March
+        *   **Vibe**: Beach's and Tropical Regions, Peaceful and calm places, Historical Sites
+        *   **Key Attractions**: Tarkarli Beach (Lat: 16.0354, Lng: 73.4862), Sindhudurg Fort, Rock Garden, Malvan Marine Sanctuary (for Scuba & Snorkeling).
+        *   **Local Cuisine**: Malvani Fish Curry, Kombdi Vade.
+
+        ### 6. Nashik – The Wine Capital
+        *   **Region**: Northern Maharashtra
+        *   **Best Time to Visit**: September to March
+        *   **Vibe**: Religious Places, Natural Beauty, Peaceful and calm places
+        *   **Key Attractions**: Sula Vineyards (Lat: 19.9969, Lng: 73.7259), Trimbakeshwar Shiva Temple, Panchavati, Dudhsagar Falls.
+        *   **Local Cuisine**: Misal Pav.
     `;
     
     const prompt = `
         You are a world-class travel planner AI named "Wander Wise". Your goal is to create a detailed, exciting, and practical travel itinerary for a trip in Maharashtra, India.
+
+        **CRITICAL INSTRUCTION: You MUST create a personalized itinerary that strictly adheres to the user's preferences. Use the Vibe and Interest information to select the most appropriate cities from the research data.** For example, if the user wants "Beach's and Tropical Regions" and "Peaceful and calm places", you MUST prioritize locations from the Konkan Coast like Ratnagiri or Tarkarli. Do not suggest Mumbai for a user who wants peace. If a user likes "Historical Sites", focus on places like Aurangabad or Pune.
 
         **CONTEXT: MAHARASHTRA TRAVEL GUIDE**
         ${researchDataForMaharashtra}
 
         **USER REQUEST**
         A user wants to plan a trip with the following details:
-        - Destination: ${details.destination}
+        - Destination State: ${details.destination}
         - Duration: ${details.duration}
-        - Interests: ${details.interests}
+        - Interests and Vibe: ${details.interests}
 
         **INSTRUCTIONS**
         Generate a personalized itinerary based on the user's preferences and the provided research data.
@@ -123,7 +215,7 @@ export const generateItinerary = async (details: TripDetails): Promise<Itinerary
         First, you MUST provide a single, consolidated **bestTimeToVisit** for the entire trip that covers all destinations.
         
         Then, for each day, you MUST provide:
-        1.  **dayImage**: A URL to a beautiful photograph of the main location.
+        1.  **dayImage**: A URL to a beautiful, high-quality photograph of the main location.
         2.  **coords**: The latitude and longitude for the day's main location. Use the coordinates provided in the research data for the main attraction you select for the day.
         3.  **foodSuggestion**: Suggest one famous local dish. Provide ONLY its name and a brief description. DO NOT provide an imageUrl.
         4.  **activities**: A logical sequence of activities for the day.
@@ -143,7 +235,7 @@ export const generateItinerary = async (details: TripDetails): Promise<Itinerary
         });
         
         const jsonText = response.text.trim();
-        const itineraryResult = JSON.parse(jsonText);
+        const itineraryResult: Itinerary = JSON.parse(jsonText);
 
         // Assign images for each food suggestion from the predefined database.
         for (const day of itineraryResult.days) {
@@ -151,7 +243,7 @@ export const generateItinerary = async (details: TripDetails): Promise<Itinerary
                 const foodName = day.foodSuggestion.name;
                 // Find a matching key in the database, case-insensitive, to get the correct image URL.
                 const dbKey = Object.keys(foodImageDatabase).find(key => 
-                    key.toLowerCase() === foodName.toLowerCase()
+                    foodName.toLowerCase().includes(key.toLowerCase())
                 );
                 day.foodSuggestion.imageUrl = dbKey ? foodImageDatabase[dbKey] : foodImageDatabase['default'];
             } else if (day.foodSuggestion) {
@@ -160,7 +252,13 @@ export const generateItinerary = async (details: TripDetails): Promise<Itinerary
             }
         }
         
-        return itineraryResult as Itinerary;
+        // NEW: Generate and attach weather forecast
+        if (itineraryResult.days && itineraryResult.days.length > 0) {
+            const weatherForecast = await generateWeatherForecast(itineraryResult.tripTitle, itineraryResult.bestTimeToVisit, itineraryResult.days.length);
+            itineraryResult.weatherForecast = weatherForecast;
+        }
+
+        return itineraryResult;
         
     } catch (error) {
         console.error("Error generating itinerary:", error);
