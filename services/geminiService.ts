@@ -1,10 +1,9 @@
 
-import { GoogleGenAI, Type } from "@google/genai";
-import type { TripDetails, Itinerary, Storybook, WeatherForecast } from '../types';
+import { GoogleGenAI, Type, Modality } from "@google/genai";
+import type { TripDetails, Itinerary, Storybook, TravelBuddy, GroundingSource } from '../types';
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY as string });
+const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
 
-// A predefined "database" of food images to replace on-the-fly generation.
 const foodImageDatabase: { [key: string]: string } = {
     'Vada Pav': 'https://c.ndtvimg.com/2023-01/m9i5s47o_vada-pav_625x300_20_January_23.jpg',
     'Pav Bhaji': 'https://www.vegrecipesofindia.com/wp-content/uploads/2021/10/pav-bhaji-recipe-1.jpg',
@@ -21,95 +20,27 @@ const foodImageDatabase: { [key: string]: string } = {
     'default': 'https://via.placeholder.com/400?text=Delicious+Food'
 };
 
-export const generateWeatherForecast = async (destinationName: string, timePeriod: string, durationInDays: number): Promise<WeatherForecast> => {
-    const weatherSchema = {
-        type: Type.OBJECT,
-        properties: {
-            daily: {
-                type: Type.ARRAY,
-                description: `An array of daily forecast objects for ${durationInDays} days.`,
-                items: {
-                    type: Type.OBJECT,
-                    properties: {
-                        dayOfWeek: { type: Type.STRING, description: "The abbreviated day of the week, e.g., 'Mon', 'Tue'." },
-                        icon: {
-                            type: Type.STRING,
-                            description: "An icon identifier. Must be one of: 'sunny', 'cloudy', 'partly-cloudy', 'rain', 'storm'.",
-                            enum: ['sunny', 'cloudy', 'partly-cloudy', 'rain', 'storm']
-                        },
-                        highTemp: { type: Type.INTEGER, description: "The high temperature in Celsius." },
-                        lowTemp: { type: Type.INTEGER, description: "The low temperature in Celsius." },
-                        description: { type: Type.STRING, description: "A brief weather description, e.g., 'Clear skies'." }
-                    },
-                    required: ["dayOfWeek", "icon", "highTemp", "lowTemp", "description"]
-                }
-            }
-        },
-        required: ["daily"]
-    };
-
-    const prompt = `
-        You are a weather forecasting AI. Provide a realistic and plausible daily weather forecast for a trip.
-
-        **TRIP DETAILS**
-        - Location: A trip centered around ${destinationName}, Maharashtra.
-        - Time of Year: The recommended time to visit is ${timePeriod}.
-        - Duration: ${durationInDays} days.
-
-        **INSTRUCTIONS**
-        - Generate a day-by-day forecast for the entire duration of the trip.
-        - Ensure the weather is typical for the given location and time of year in Maharashtra. For instance, June-September is monsoon (rainy), while November-February is cooler and dry.
-        - The number of items in the 'daily' array must be exactly ${durationInDays}.
-        - Provide the output in the requested JSON format, adhering strictly to the schema.
-    `;
-
-    try {
-        const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json",
-                responseSchema: weatherSchema,
-            },
-        });
-        const jsonText = response.text.trim();
-        return JSON.parse(jsonText) as WeatherForecast;
-    } catch (error) {
-        console.error("Error generating weather forecast:", error);
-        // Return a default or empty forecast to prevent the whole itinerary from failing
-        return { daily: [] };
-    }
-};
-
-
 export const generateItinerary = async (details: TripDetails): Promise<Itinerary> => {
-    // Schema for the text model, which should only return text data.
     const textModelSchema = {
         type: Type.OBJECT,
         properties: {
-            tripTitle: {
-                type: Type.STRING,
-                description: "A creative and exciting title for the trip. For example, 'An Unforgettable 7-Day Journey Through Maharashtra'."
-            },
-            bestTimeToVisit: {
-                type: Type.STRING,
-                description: "Based on all planned locations, provide a single, consolidated best time to visit for the entire trip. For example, 'September to March'."
-            },
+            tripTitle: { type: Type.STRING },
+            bestTimeToVisit: { type: Type.STRING },
+            climate: { type: Type.STRING },
             days: {
                 type: Type.ARRAY,
-                description: "An array of objects, where each object represents one day of the trip.",
                 items: {
                     type: Type.OBJECT,
                     properties: {
-                        day: { type: Type.INTEGER, description: "The day number, starting from 1." },
-                        title: { type: Type.STRING, description: "A short, catchy title for the day's theme. e.g., 'Mumbai's Coastal Charms'." },
-                        dayImage: { type: Type.STRING, description: "A publicly accessible URL for a high-quality image representing the main attraction of the day. For example, an image of Marine Drive for a day in Mumbai." },
+                        day: { type: Type.INTEGER },
+                        title: { type: Type.STRING },
+                        summary: { type: Type.STRING },
+                        dayImage: { type: Type.STRING },
                         coords: {
                             type: Type.OBJECT,
-                            description: "The geographic latitude and longitude of the day's main location/attraction.",
                             properties: {
-                                lat: { type: Type.NUMBER, description: "Latitude of the location." },
-                                lng: { type: Type.NUMBER, description: "Longitude of the location." }
+                                lat: { type: Type.NUMBER },
+                                lng: { type: Type.NUMBER }
                             },
                             required: ["lat", "lng"]
                         },
@@ -118,193 +49,148 @@ export const generateItinerary = async (details: TripDetails): Promise<Itinerary
                             items: {
                                 type: Type.OBJECT,
                                 properties: {
-                                    time: { type: Type.STRING, description: "Suggested time for the activity, e.g., '9:00 AM' or 'Afternoon'." },
-                                    description: { type: Type.STRING, description: "A detailed description of the activity." },
-                                    location: { type: Type.STRING, description: "The specific location or address of the activity, if applicable." }
+                                    time: { type: Type.STRING },
+                                    description: { type: Type.STRING }
                                 },
                                 required: ["time", "description"]
                             }
                         },
                         foodSuggestion: {
                             type: Type.OBJECT,
-                            description: "A suggestion for a local dish. Only provide the name and description.",
                             properties: {
-                                name: { type: Type.STRING, description: "Name of the food, e.g., 'Vada Pav'." },
-                                description: { type: Type.STRING, description: "A short, enticing description of the food." }
+                                name: { type: Type.STRING },
+                                description: { type: Type.STRING }
                             },
                             required: ["name", "description"]
-                        },
-                        nearbySuggestion: {
-                            type: Type.OBJECT,
-                            properties: {
-                                name: { type: Type.STRING, description: "Name of the suggested place." },
-                                description: { type: Type.STRING, description: "A short description of why it's a must-visit." }
-                            }
                         }
                     },
-                    required: ["day", "title", "dayImage", "coords", "activities", "foodSuggestion"]
+                    required: ["day", "title", "summary", "dayImage", "coords", "activities", "foodSuggestion"]
+                }
+            },
+            suggestedBuddies: {
+                type: Type.ARRAY,
+                items: {
+                    type: Type.OBJECT,
+                    properties: {
+                        id: { type: Type.STRING },
+                        name: { type: Type.STRING },
+                        age: { type: Type.INTEGER },
+                        bio: { type: Type.STRING },
+                        avatar: { type: Type.STRING },
+                        interests: { type: Type.ARRAY, items: { type: Type.STRING } },
+                        compatibility: { type: Type.INTEGER }
+                    },
+                    required: ["id", "name", "age", "bio", "avatar", "interests", "compatibility"]
                 }
             }
         },
-        required: ["tripTitle", "days", "bestTimeToVisit"]
+        required: ["tripTitle", "days", "bestTimeToVisit", "climate"]
     };
 
-    const researchDataForMaharashtra = `
-        Here is some expert research on key destinations in Maharashtra. Use this as a primary source of information to create a high-quality, accurate, and appealing itinerary.
-
-        ### 1. Mumbai – The City of Dreams
-        *   **Region**: Western Maharashtra / Konkan Coast
-        *   **Best Time to Visit**: November to February
-        *   **Vibe**: Modern Cities, Crowded Places
-        *   **Key Attractions**: Gateway of India (Lat: 18.9220, Lng: 72.8347), Marine Drive, Chhatrapati Shivaji Maharaj Terminus, Elephanta Caves.
-        *   **Local Cuisine**: Vada Pav, Pav Bhaji, Bombil Fry.
-
-        ### 2. Pune – The Cultural Capital
-        *   **Region**: Western Maharashtra
-        *   **Best Time to Visit**: September to February
-        *   **Vibe**: Historical Sites, Modern Cities
-        *   **Key Attractions**: Shaniwar Wada (Lat: 18.5196, Lng: 73.8554), Aga Khan Palace, Osho Ashram, Pataleshwar Cave Temple.
-        *   **Local Cuisine**: Misal Pav, Bhakarwadi, Sabudana Khichdi.
-
-        ### 3. Aurangabad – The Heritage Hub
-        *   **Region**: Marathwada
-        *   **Best Time to Visit**: October to March
-        *   **Vibe**: Historical Sites, Religious Places
-        *   **Key Attractions**: Ajanta Caves, Ellora Caves (Lat: 20.0259, Lng: 75.1773), Bibi Ka Maqbara, Daulatabad Fort.
-        *   **Local Cuisine**: Naan Qalia, Puran Poli.
-    
-        ### 4. Ratnagiri – The Jewel of Konkan
-        *   **Region**: Konkan Coast
-        *   **Best Time to Visit**: October to March
-        *   **Vibe**: Beach's and Tropical Regions, Natural Beauty, Peaceful and calm places
-        *   **Key Attractions**: Ganpatipule Beach (Lat: 17.1475, Lng: 73.2682), Ratnadurg Fort, Thibaw Palace, Jaigad Lighthouse.
-        *   **Local Cuisine**: Solkadhi, Konkani seafood curry.
-
-        ### 5. Tarkarli/Malvan – The Coastal Paradise
-        *   **Region**: Konkan Coast (Sindhudurg)
-        *   **Best Time to Visit**: October to March
-        *   **Vibe**: Beach's and Tropical Regions, Peaceful and calm places, Historical Sites
-        *   **Key Attractions**: Tarkarli Beach (Lat: 16.0354, Lng: 73.4862), Sindhudurg Fort, Rock Garden, Malvan Marine Sanctuary (for Scuba & Snorkeling).
-        *   **Local Cuisine**: Malvani Fish Curry, Kombdi Vade.
-
-        ### 6. Nashik – The Wine Capital
-        *   **Region**: Northern Maharashtra
-        *   **Best Time to Visit**: September to March
-        *   **Vibe**: Religious Places, Natural Beauty, Peaceful and calm places
-        *   **Key Attractions**: Sula Vineyards (Lat: 19.9969, Lng: 73.7259), Trimbakeshwar Shiva Temple, Panchavati, Dudhsagar Falls.
-        *   **Local Cuisine**: Misal Pav.
-    `;
-    
     const prompt = `
-        You are a world-class travel planner AI named "Wander Wise". Your goal is to create a detailed, exciting, and practical travel itinerary for a trip in Maharashtra, India.
-
-        **CRITICAL INSTRUCTION: You MUST create a personalized itinerary that strictly adheres to the user's preferences. Use the Vibe and Interest information to select the most appropriate cities from the research data.** For example, if the user wants "Beach's and Tropical Regions" and "Peaceful and calm places", you MUST prioritize locations from the Konkan Coast like Ratnagiri or Tarkarli. Do not suggest Mumbai for a user who wants peace. If a user likes "Historical Sites", focus on places like Aurangabad or Pune.
-
-        **CONTEXT: MAHARASHTRA TRAVEL GUIDE**
-        ${researchDataForMaharashtra}
-
-        **USER REQUEST**
-        A user wants to plan a trip with the following details:
-        - Destination State: ${details.destination}
-        - Duration: ${details.duration}
-        - Interests and Vibe: ${details.interests}
-
-        **INSTRUCTIONS**
-        Generate a personalized itinerary based on the user's preferences and the provided research data.
+        You are "Wander Wise", a creative travel concierge. Create a high-quality ${details.duration} itinerary for ${details.destination}.
+        User Interests: ${details.interests}. 
+        Buddy Preference: ${details.buddyPreference}.
         
-        First, you MUST provide a single, consolidated **bestTimeToVisit** for the entire trip that covers all destinations.
-        
-        Then, for each day, you MUST provide:
-        1.  **dayImage**: A URL to a beautiful, high-quality photograph of the main location.
-        2.  **coords**: The latitude and longitude for the day's main location. Use the coordinates provided in the research data for the main attraction you select for the day.
-        3.  **foodSuggestion**: Suggest one famous local dish. Provide ONLY its name and a brief description. DO NOT provide an imageUrl.
-        4.  **activities**: A logical sequence of activities for the day.
-        5.  **nearbySuggestion**: Suggest one nearby "must-visit" place.
-
-        Provide the output in the requested JSON format, adhering strictly to the provided schema. Do not include a bestTimeToVisit field inside each day's plan.
+        INSTRUCTIONS:
+        1. Use your integrated Google Search tool to find up-to-date information on local festivals, weather trends, and current travel advice for ${details.destination}.
+        2. Ensure the itinerary reflects current reality (e.g., if a place is closed or a new attraction is trending).
+        3. Return valid JSON only matching the requested schema.
     `;
 
     try {
         const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
+            model: "gemini-3-flash-preview",
             contents: prompt,
             config: {
                 responseMimeType: "application/json",
                 responseSchema: textModelSchema,
+                thinkingConfig: { thinkingBudget: 0 },
+                tools: [{ googleSearch: {} }]
             },
         });
         
-        const jsonText = response.text.trim();
-        const itineraryResult: Itinerary = JSON.parse(jsonText);
+        const itineraryResult: Itinerary = JSON.parse(response.text.trim());
 
-        // Assign images for each food suggestion from the predefined database.
+        // Extract Search Grounding metadata
+        const groundingChunks = response.candidates?.[0]?.groundingMetadata?.groundingChunks;
+        if (groundingChunks) {
+            const sources: GroundingSource[] = groundingChunks
+                .filter(chunk => chunk.web)
+                .map(chunk => ({
+                    title: chunk.web.title,
+                    uri: chunk.web.uri
+                }));
+            itineraryResult.sources = sources;
+        }
+
         for (const day of itineraryResult.days) {
-            if (day.foodSuggestion && day.foodSuggestion.name) {
-                const foodName = day.foodSuggestion.name;
-                // Find a matching key in the database, case-insensitive, to get the correct image URL.
+            if (day.foodSuggestion?.name) {
                 const dbKey = Object.keys(foodImageDatabase).find(key => 
-                    foodName.toLowerCase().includes(key.toLowerCase())
+                    day.foodSuggestion.name.toLowerCase().includes(key.toLowerCase())
                 );
                 day.foodSuggestion.imageUrl = dbKey ? foodImageDatabase[dbKey] : foodImageDatabase['default'];
-            } else if (day.foodSuggestion) {
-                // If there's a suggestion object but no name, use a default placeholder.
-                day.foodSuggestion.imageUrl = foodImageDatabase['default'];
             }
         }
         
-        // NEW: Generate and attach weather forecast
-        if (itineraryResult.days && itineraryResult.days.length > 0) {
-            const weatherForecast = await generateWeatherForecast(itineraryResult.tripTitle, itineraryResult.bestTimeToVisit, itineraryResult.days.length);
-            itineraryResult.weatherForecast = weatherForecast;
-        }
-
         return itineraryResult;
-        
     } catch (error) {
-        console.error("Error generating itinerary:", error);
-        throw new Error("Failed to communicate with the AI planner. The itinerary could not be generated.");
+        console.error("Itinerary generation failed:", error);
+        throw new Error("Failed to craft your journey. Please try again.");
     }
 };
 
-export const generateStory = async (poiName: string, storyType: string): Promise<string> => {
+export const generateStory = async (poiName: string, storyType: string, language: string = 'English'): Promise<string> => {
     const prompt = `
-        You are a master storyteller and travel guide.
-        Generate a short, immersive story for a tourist visiting a famous landmark.
-        The story should be engaging, about 1 minute long (approximately 150 words), and suitable for an audio guide.
-
-        Landmark: ${poiName}
-        Story Theme: ${storyType}
-
-        Craft a compelling narrative. Do not include any introductory or concluding phrases like "Here is the story:" or "I hope you enjoyed this tale.". Just provide the story itself.
+        You are a master storyteller. Tell a compelling 150-word story about ${poiName} with a ${storyType} theme.
+        Language: ${language}.
+        Tone: Immersive, evocative, and educational.
+        IMPORTANT: Use the requested language (${language}) for the story content. 
+        If the landmark is in Maharashtra or India, include local cultural flavor. 
     `;
 
     try {
         const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
+            model: "gemini-3-flash-preview",
             contents: prompt,
+            config: { thinkingConfig: { thinkingBudget: 0 } }
         });
-        
         return response.text.trim();
-
     } catch (error) {
-        console.error(`Error generating story for ${poiName}:`, error);
-        throw new Error(`Failed to generate a ${storyType} story. Please try again.`);
+        throw new Error(`The storytellers are resting. We couldn't generate the ${storyType} tale in ${language}.`);
     }
 };
 
-// NEW: Function to generate a storybook
+export const generateStoryAudio = async (text: string, voiceName: string = 'Kore'): Promise<string> => {
+    try {
+        const response = await ai.models.generateContent({
+            model: "gemini-2.5-flash-preview-tts",
+            contents: [{ parts: [{ text: `Please narrate this text naturally: ${text}` }] }],
+            config: {
+                responseModalities: [Modality.AUDIO],
+                speechConfig: {
+                    voiceConfig: {
+                        prebuiltVoiceConfig: { voiceName },
+                    },
+                },
+            },
+        });
+        
+        const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
+        if (!base64Audio) throw new Error("Audio generation failed.");
+        return base64Audio;
+    } catch (error) {
+        console.error("TTS generation failed:", error);
+        throw new Error("Voice narration service is temporarily unavailable.");
+    }
+};
+
 export const generateStorybook = async (itinerary: Itinerary, tripDetails: TripDetails): Promise<Storybook> => {
     const storybookSchema = {
         type: Type.OBJECT,
         properties: {
-            title: {
-                type: Type.STRING,
-                description: "A beautiful, evocative title for the storybook, based on the original trip title."
-            },
-            coverImage: {
-                type: Type.STRING,
-                description: "The URL of the image from the first day of the itinerary to be used as the cover."
-            },
+            title: { type: Type.STRING },
+            coverImage: { type: Type.STRING },
             pages: {
                 type: Type.ARRAY,
                 items: {
@@ -312,11 +198,8 @@ export const generateStorybook = async (itinerary: Itinerary, tripDetails: TripD
                     properties: {
                         day: { type: Type.INTEGER },
                         title: { type: Type.STRING },
-                        narrative: {
-                            type: Type.STRING,
-                            description: "A short, emotional, diary-style story (2-3 paragraphs) summarizing the day's events. The tone should be engaging, poetic, and reflective. It must be personalized based on the user's interests."
-                        },
-                        image: { type: Type.STRING, description: "The URL of the image for that specific day." }
+                        narrative: { type: Type.STRING },
+                        image: { type: Type.STRING }
                     },
                     required: ["day", "title", "narrative", "image"]
                 }
@@ -325,42 +208,20 @@ export const generateStorybook = async (itinerary: Itinerary, tripDetails: TripD
         required: ["title", "coverImage", "pages"]
     };
 
-    const prompt = `
-        You are an AI-powered storyteller named "Wander Wise". Your task is to transform a travel itinerary into a beautiful, personalized digital storybook.
-
-        **USER'S PREFERENCES**
-        - Main Interest: ${tripDetails.interests}
-
-        **TRIP ITINERARY**
-        \`\`\`json
-        ${JSON.stringify(itinerary, null, 2)}
-        \`\`\`
-
-        **INSTRUCTIONS**
-        1.  Create an evocative **title** for the storybook based on the itinerary's trip title.
-        2.  Use the image from Day 1 as the **coverImage**.
-        3.  For each day in the itinerary, write a **narrative**. This narrative should be:
-            -   **Emotional and Reflective:** Write it like a personal travel diary entry.
-            -   **Personalized:** Emphasize aspects that align with the user's stated interests. For example, if they like history, focus on the historical significance of the places. If they are a foodie, highlight the culinary experiences.
-            -   **Summarizing:** Weave the day's title and key activities into a flowing story.
-            -   **Concise:** Keep it to 2-3 paragraphs per day.
-        4.  For each page, include the day number, the day's original title, the newly generated narrative, and the day's original image URL.
-        5.  Structure the final output in the requested JSON format, strictly following the schema.
-    `;
+    const prompt = `Create a poetic travel storybook for a trip called "${itinerary.tripTitle}". Itinerary Data: ${JSON.stringify(itinerary)}`;
 
     try {
         const response = await ai.models.generateContent({
-            model: "gemini-2.5-flash",
+            model: "gemini-3-flash-preview",
             contents: prompt,
             config: {
                 responseMimeType: "application/json",
                 responseSchema: storybookSchema,
+                thinkingConfig: { thinkingBudget: 0 }
             },
         });
-        const jsonText = response.text.trim();
-        return JSON.parse(jsonText) as Storybook;
+        return JSON.parse(response.text.trim());
     } catch (error) {
-        console.error("Error generating storybook:", error);
-        throw new Error("Failed to create your trip storybook. The AI storyteller might be busy dreaming up other adventures.");
+        throw new Error("Storybook creation failed.");
     }
 };

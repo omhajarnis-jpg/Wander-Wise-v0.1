@@ -1,50 +1,59 @@
-import React, { useState, useEffect } from 'react';
+
+import React, { useState, useEffect, useRef } from 'react';
 import type { User, DayPlan } from '../types';
 import Header from './Header';
-import { generateStory } from '../services/geminiService';
+import { generateStory, generateStoryAudio } from '../services/geminiService';
 
-// --- ICONS ---
 const PlayIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 20 20" fill="currentColor">
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12" viewBox="0 0 20 20" fill="currentColor">
         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9.555 7.168A1 1 0 008 8v4a1 1 0 001.555.832l3-2a1 1 0 000-1.664l-3-2z" clipRule="evenodd" />
     </svg>
 );
 
 const PauseIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-8 w-8" viewBox="0 0 20 20" fill="currentColor">
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-12 w-12" viewBox="0 0 20 20" fill="currentColor">
         <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8 7a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1zm4 0a1 1 0 00-1 1v4a1 1 0 102 0V8a1 1 0 00-1-1z" clipRule="evenodd" />
     </svg>
 );
 
-const HistoryIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 mx-auto mb-2 text-amber-800" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+const MicIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z" />
     </svg>
 );
 
-const FolkloreIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 mx-auto mb-2 text-emerald-800" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m-7.5-2.928A9.09 9.09 0 0112 15.125a9.09 9.09 0 01-2.258 3.472m-6.32 2.685a9.09 9.09 0 003.741-.479 3 3 0 00-4.682-2.72M12 18.72a9.094 9.094 0 01-3.741-.479 3 3 0 014.682-2.72M12 3.75a9.094 9.094 0 013.741.479 3 3 0 01-4.682 2.72M12 3.75a9.09 9.09 0 00-3.741.479 3 3 0 004.682 2.72m6.32 2.685a9.09 9.09 0 01-3.741.479 3 3 0 014.682 2.72" />
-    </svg>
-);
-
-const MythologyIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-10 w-10 mx-auto mb-2 text-indigo-800" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />
-    </svg>
-);
-
-const LoadingSpinner = () => (
-    <div className="flex flex-col items-center justify-center p-8 bg-gray-50 rounded-lg border">
-        <svg className="animate-spin h-8 w-8 text-teal-500 mb-3" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+const LoadingSpinner = ({ message }: { message: string }) => (
+    <div className="flex flex-col items-center justify-center p-14 bg-white/90 backdrop-blur-xl rounded-[2rem] border-2 border-teal-100 shadow-xl animate-fade-in-up-fast">
+        <svg className="animate-spin h-14 w-14 text-teal-500 mb-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
             <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
             <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
         </svg>
-        <p className="text-gray-600 font-semibold">Crafting your story...</p>
+        <p className="text-gray-900 font-bold text-xl uppercase tracking-widest">{message}</p>
     </div>
 );
 
-// --- COMPONENT ---
+function decodeBase64(base64: string) {
+    const binaryString = atob(base64);
+    const bytes = new Uint8Array(binaryString.length);
+    for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i);
+    }
+    return bytes;
+}
+
+async function decodeAudioData(data: Uint8Array, ctx: AudioContext, sampleRate: number, numChannels: number): Promise<AudioBuffer> {
+    const dataInt16 = new Int16Array(data.buffer);
+    const frameCount = dataInt16.length / numChannels;
+    const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
+    for (let channel = 0; channel < numChannels; channel++) {
+        const channelData = buffer.getChannelData(channel);
+        for (let i = 0; i < frameCount; i++) {
+            channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
+        }
+    }
+    return buffer;
+}
+
 interface TripDetailsPageProps {
   day: DayPlan | null;
   onBack: () => void;
@@ -52,196 +61,247 @@ interface TripDetailsPageProps {
   user: User | null;
   onLogout: () => void;
   onGoHome: () => void;
+  onHelp: () => void;
 }
-type StoryType = 'Historical' | 'Local Folklore' | 'Mythological';
 
-const TripDetailsPage: React.FC<TripDetailsPageProps> = ({ day, onBack, isLoggedIn, user, onLogout, onGoHome }) => {
-    const [storyContent, setStoryContent] = useState<{ type: StoryType; text: string } | null>(null);
+type StoryType = 'Historical' | 'Local Folklore' | 'Mythological';
+type Language = 'English' | 'Hindi' | 'Marathi';
+
+const AVAILABLE_NARRATORS = ['Kore', 'Puck', 'Charon', 'Fenrir', 'Zephyr'];
+const SUPPORTED_LANGUAGES: { name: Language; label: string }[] = [
+    { name: 'English', label: 'English' },
+    { name: 'Hindi', label: 'हिन्दी (Hindi)' },
+    { name: 'Marathi', label: 'मराठी (Marathi)' }
+];
+
+const TripDetailsPage: React.FC<TripDetailsPageProps> = ({ day, onBack, isLoggedIn, user, onLogout, onGoHome, onHelp }) => {
+    const [storyContent, setStoryContent] = useState<{ type: StoryType; text: string; language: Language } | null>(null);
     const [isGenerating, setIsGenerating] = useState<boolean>(false);
+    const [isAudioLoading, setIsAudioLoading] = useState<boolean>(false);
     const [error, setError] = useState<string | null>(null);
     const [isSpeaking, setIsSpeaking] = useState<boolean>(false);
-    const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-    const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
-    
+    const [selectedVoice, setSelectedVoice] = useState<string>('Zephyr');
+    const [selectedLanguage, setSelectedLanguage] = useState<Language>('English');
+    const [isListening, setIsListening] = useState<boolean>(false);
+    const [lastCommand, setLastCommand] = useState<string>('');
+
+    const audioContextRef = useRef<AudioContext | null>(null);
+    const audioSourceRef = useRef<AudioBufferSourceNode | null>(null);
+    const recognitionRef = useRef<any>(null);
+
     useEffect(() => {
-        const loadVoices = () => {
-            const availableVoices = speechSynthesis.getVoices();
-            // Load English and Hindi voices
-            const filteredVoices = availableVoices.filter(voice => voice.lang.startsWith('en') || voice.lang.startsWith('hi'));
-            setVoices(filteredVoices);
-            if (filteredVoices.length > 0 && !selectedVoice) {
-                setSelectedVoice(filteredVoices[0]); // Set a default voice
-            }
-        };
-
-        if (speechSynthesis.onvoiceschanged !== undefined) {
-            speechSynthesis.onvoiceschanged = loadVoices;
+        const SpeechRecognition = (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+        if (SpeechRecognition) {
+            const recognition = new SpeechRecognition();
+            recognition.continuous = true;
+            recognition.interimResults = false;
+            recognition.lang = 'en-US';
+            recognition.onresult = (event: any) => {
+                const transcript = event.results[event.results.length - 1][0].transcript.toLowerCase();
+                setLastCommand(transcript);
+                handleVoiceCommand(transcript);
+            };
+            recognition.onerror = (event: any) => {
+                if (event.error === 'not-allowed') { setError("Microphone access denied. Enable permissions for voice control."); }
+                setIsListening(false);
+            };
+            recognition.onend = () => { if (isListening) recognition.start(); };
+            recognitionRef.current = recognition;
         }
-        loadVoices(); 
+        return () => { stopAudio(); if (recognitionRef.current) recognitionRef.current.stop(); };
+    }, []);
 
-        return () => {
-            if (speechSynthesis.speaking) {
-                speechSynthesis.cancel();
-            }
-            speechSynthesis.onvoiceschanged = null;
-        };
-    }, [selectedVoice]);
+    const toggleListening = () => {
+        if (!recognitionRef.current) { setError("Voice commands are not supported on this browser."); return; }
+        if (isListening) { recognitionRef.current.stop(); setIsListening(false); }
+        else { setError(null); try { recognitionRef.current.start(); setIsListening(true); } catch (e) { setError("Could not access microphone."); } }
+    };
 
+    const handleVoiceCommand = (command: string) => {
+        const cmd = command.trim();
+        if (cmd.includes('play') || cmd.includes('start')) { playAudio(); }
+        else if (cmd.includes('pause') || cmd.includes('hold')) { stopAudio(); }
+        else if (cmd.includes('stop') || cmd.includes('finish')) { stopAudio(); }
+        else if (cmd.includes('voice') || cmd.includes('change')) { cycleVoice(); }
+    };
 
     const handleSelectStory = async (type: StoryType) => {
         if (!day) return;
-        
-        if (speechSynthesis.speaking) {
-            speechSynthesis.cancel();
-            setIsSpeaking(false);
-        }
-        
-        setStoryContent(null);
-        setIsGenerating(true);
-        setError(null);
-        
+        stopAudio(); setStoryContent(null); setIsGenerating(true); setError(null);
         try {
-            const text = await generateStory(day.title, type);
-            setStoryContent({ type, text });
-        } catch (e) {
-            setError(e instanceof Error ? e.message : 'An unknown error occurred.');
-        } finally {
-            setIsGenerating(false);
-        }
+            const text = await generateStory(day.title, type, selectedLanguage);
+            setStoryContent({ type, text, language: selectedLanguage });
+        } catch (e) { setError(e instanceof Error ? e.message : 'Generation failed.'); }
+        finally { setIsGenerating(false); }
     };
 
-    const toggleSpeech = () => {
-        if (!storyContent?.text) return;
-        
-        if (isSpeaking) {
-            speechSynthesis.cancel();
-            setIsSpeaking(false);
-        } else {
-            if (!selectedVoice) {
-                setError("No narrator voice is selected. Please choose one from the list.");
-                return;
-            }
-            const utterance = new SpeechSynthesisUtterance(storyContent.text);
-            utterance.voice = selectedVoice;
-            utterance.onend = () => setIsSpeaking(false);
-            utterance.onerror = (e: SpeechSynthesisErrorEvent) => {
-                console.error('Speech synthesis error:', e.error);
-                let userMessage = 'Sorry, an audio playback error occurred.';
-                if (e.error === 'network') {
-                    userMessage = 'A network error occurred while generating speech. Please check your connection.';
-                } else if (e.error === 'synthesis-failed') {
-                    userMessage = 'The speech synthesis failed. Try a different voice or refresh the page.';
-                } else if (e.error === 'voice-unavailable') {
-                    userMessage = 'The selected narrator voice is unavailable. Please choose another one.';
-                }
-                setError(userMessage);
-                setIsSpeaking(false);
-            };
-            speechSynthesis.speak(utterance);
-            setIsSpeaking(true);
-        }
+    const cycleVoice = () => {
+        const currentIndex = AVAILABLE_NARRATORS.indexOf(selectedVoice);
+        const nextIndex = (currentIndex + 1) % AVAILABLE_NARRATORS.length;
+        setSelectedVoice(AVAILABLE_NARRATORS[nextIndex]);
+        if (isSpeaking) { stopAudio(); setTimeout(playAudio, 150); }
+    };
+
+    const playAudio = async () => {
+        if (!storyContent?.text) { setError("Select a theme to unlock the narration."); return; }
+        if (isSpeaking) return;
+        setError(null); setIsAudioLoading(true);
+        try {
+            if (!audioContextRef.current) { audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 }); }
+            const base64Audio = await generateStoryAudio(storyContent.text, selectedVoice);
+            const audioData = decodeBase64(base64Audio);
+            const audioBuffer = await decodeAudioData(audioData, audioContextRef.current, 24000, 1);
+            const source = audioContextRef.current.createBufferSource();
+            source.buffer = audioBuffer;
+            source.connect(audioContextRef.current.destination);
+            source.onended = () => setIsSpeaking(false);
+            audioSourceRef.current = source;
+            source.start(); setIsSpeaking(true);
+        } catch (e) { setError("Voice service unavailable. Check your connection."); }
+        finally { setIsAudioLoading(false); }
+    };
+
+    const stopAudio = () => {
+        if (audioSourceRef.current) { try { audioSourceRef.current.stop(); } catch (e) {} audioSourceRef.current = null; }
+        setIsSpeaking(false);
     };
     
-    if (!day) {
-        return (
-          <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50">
-            <h2 className="text-2xl font-bold mb-4 text-gray-800">Day details not found.</h2>
-            <button onClick={onGoHome} className="px-6 py-2 bg-teal-500 text-white font-semibold rounded-lg hover:bg-teal-600">
-              Go Home
-            </button>
-          </div>
-        );
-    }
+    if (!day) return null;
     
-    const storyTypes: { name: StoryType, icon: JSX.Element, description: string, colors: string }[] = [
-        { name: 'Historical', icon: <HistoryIcon />, description: 'Uncover the factual past.', colors: 'bg-amber-50 border-amber-200 hover:bg-amber-100 hover:border-amber-300 text-amber-900'},
-        { name: 'Local Folklore', icon: <FolkloreIcon />, description: 'Hear tales passed down generations.', colors: 'bg-emerald-50 border-emerald-200 hover:bg-emerald-100 hover:border-emerald-300 text-emerald-900'},
-        { name: 'Mythological', icon: <MythologyIcon />, description: 'Explore legends and deities.', colors: 'bg-indigo-50 border-indigo-200 hover:bg-indigo-100 hover:border-indigo-300 text-indigo-900'},
+    const storyTypes: { name: StoryType, icon: string, description: string, color: string }[] = [
+        { name: 'Historical', icon: '🏛️', description: 'Deep factual history.', color: 'bg-white border-gray-200 text-gray-900 hover:border-teal-500' },
+        { name: 'Local Folklore', icon: '🎭', description: 'Tales from local elders.', color: 'bg-white border-gray-200 text-gray-900 hover:border-teal-500' },
+        { name: 'Mythological', icon: '✨', description: 'Ancient gods and legends.', color: 'bg-white border-gray-200 text-gray-900 hover:border-teal-500' },
     ];
 
     return (
-        <div className="min-h-screen bg-gray-100 text-gray-800">
-            <Header isLoggedIn={isLoggedIn} user={user} onLogin={() => {}} onLogout={onLogout} onGoHome={onGoHome} variant="dark"/>
-            <main className="container mx-auto px-4 py-12">
-                 <button onClick={onBack} className="mb-8 text-teal-600 hover:text-teal-800 font-semibold flex items-center space-x-2">
-                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" viewBox="0 0 20 20" fill="currentColor"><path fillRule="evenodd" d="M12.707 5.293a1 1 0 010 1.414L9.414 10l3.293 3.293a1 1 0 01-1.414 1.414l-4-4a1 1 0 010-1.414l4-4a1 1 0 011.414 0z" clipRule="evenodd" /></svg>
-                    <span>Back to Itinerary</span>
-                </button>
-                <div className="bg-white rounded-2xl shadow-xl overflow-hidden">
-                    <div className="relative">
-                        <img src={day.dayImage} alt={day.title} className="w-full h-80 object-cover" />
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-                        <div className="absolute bottom-0 left-0 p-8">
-                            <h1 className="text-4xl md:text-5xl font-extrabold text-white tracking-tight">{day.title}</h1>
-                        </div>
-                    </div>
-                    <div className="p-8 md:p-12">
-                        <div>
-                            <h2 className="text-3xl font-bold text-gray-900 mb-2">Immersive Stories</h2>
-                            <p className="text-gray-600 mb-8 max-w-3xl">
-                                Select a theme to generate and listen to a short, AI-powered story that brings the history and culture of {day.title} to life.
-                            </p>
-                            
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                                {storyTypes.map((type) => (
-                                    <button
-                                        key={type.name}
-                                        onClick={() => handleSelectStory(type.name)}
-                                        disabled={isGenerating}
-                                        className={`p-6 rounded-xl border-2 text-center transition-all duration-300 transform hover:-translate-y-1 focus:outline-none focus:ring-4 focus:ring-teal-300 disabled:opacity-50 disabled:cursor-wait ${type.colors}`}
-                                    >
-                                        {type.icon}
-                                        <h3 className="font-bold text-lg">{type.name}</h3>
-                                        <p className="text-sm opacity-80">{type.description}</p>
-                                    </button>
-                                ))}
-                            </div>
+        <div className="min-h-screen bg-gray-50 text-gray-900 pb-24 font-sans">
+            <Header isLoggedIn={isLoggedIn} user={user} onLogin={() => {}} onLogout={onLogout} onGoHome={onGoHome} onHelp={onHelp} variant="dark"/>
+            
+            <main className="container mx-auto px-4 max-w-6xl">
+                <div className="flex flex-col md:flex-row justify-between items-center mb-10 gap-6 animate-fade-in-up-fast">
+                    <button onClick={onBack} className="text-teal-600 hover:text-teal-800 font-bold flex items-center group transition-all uppercase tracking-widest text-xs">
+                        <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3 transition-transform group-hover:-translate-x-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                        </svg>
+                        Back to Itinerary
+                    </button>
+                    
+                    <div className="flex flex-wrap items-center justify-center gap-4">
+                         <div className="flex items-center bg-white px-6 py-3 rounded-full border border-gray-200 shadow-md">
+                            <label htmlFor="language-select" className="text-[10px] font-bold text-gray-400 mr-3 uppercase tracking-widest">Language</label>
+                            <select
+                                id="language-select"
+                                value={selectedLanguage}
+                                onChange={(e) => { setSelectedLanguage(e.target.value as Language); if (storyContent) { setError("Language updated. Re-select a theme to generate the new story."); } }}
+                                className="bg-transparent text-xs font-bold text-gray-900 focus:outline-none uppercase"
+                            >
+                                {SUPPORTED_LANGUAGES.map(lang => ( <option key={lang.name} value={lang.name}>{lang.label}</option> ))}
+                            </select>
                         </div>
 
-                        {isGenerating && <div className="mt-8"><LoadingSpinner /></div>}
+                        <button 
+                            onClick={toggleListening}
+                            className={`flex items-center space-x-3 px-6 py-3 rounded-full font-bold shadow-md transition-all border-2 uppercase text-[10px] tracking-widest ${isListening ? 'bg-red-500 text-white border-red-500 ring-4 ring-red-100' : 'bg-white text-gray-600 border-gray-200 hover:border-teal-500 hover:text-teal-600'}`}
+                        >
+                            <MicIcon />
+                            <span>{isListening ? 'Listening' : 'Voice Controls'}</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div className="bg-white rounded-[2rem] shadow-xl overflow-hidden border border-gray-100 mb-12">
+                    <div className="relative h-[400px]">
+                        <img src={day.dayImage} alt={day.title} className="w-full h-full object-cover" />
+                        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent"></div>
+                        <div className="absolute bottom-0 left-0 p-12">
+                            <span className="inline-block px-4 py-1 bg-teal-500 text-white text-[10px] font-bold uppercase tracking-widest rounded-full mb-4 shadow-lg">Memory Capsule</span>
+                            <h1 className="text-5xl md:text-6xl font-black text-white tracking-tighter leading-none uppercase">{day.title}</h1>
+                        </div>
+                    </div>
+
+                    <div className="p-10 md:p-16">
+                        <h2 className="text-3xl font-bold text-gray-900 mb-4 tracking-tight uppercase">Immersive Storytelling</h2>
+                        <p className="text-xl text-gray-500 leading-relaxed mb-12 font-medium">
+                            Experience the history of <span className="text-teal-600 font-bold">{day.title}</span> through curated AI narratives in <span className="text-teal-600 font-bold">{selectedLanguage}</span>.
+                        </p>
+                        
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-16">
+                            {storyTypes.map((type) => (
+                                <button
+                                    key={type.name}
+                                    onClick={() => handleSelectStory(type.name)}
+                                    disabled={isGenerating}
+                                    className={`group relative p-8 rounded-2xl border-2 text-center transition-all duration-300 transform hover:-translate-y-2 hover:shadow-lg disabled:opacity-50 disabled:cursor-wait ${type.color} ${storyContent?.type === type.name ? 'border-teal-500 ring-4 ring-teal-50' : ''}`}
+                                >
+                                    <div className="text-5xl mb-4 group-hover:scale-110 transition-transform">{type.icon}</div>
+                                    <h3 className="font-bold text-xl mb-1 tracking-tight uppercase">{type.name}</h3>
+                                    <p className="text-xs opacity-60 font-medium uppercase tracking-widest">{type.description}</p>
+                                </button>
+                            ))}
+                        </div>
+
+                        {isGenerating && <LoadingSpinner message={`Gathering stories in ${selectedLanguage}...`} />}
+                        {isAudioLoading && <LoadingSpinner message="Preparing your AI guide..." />}
                         
                         {error && (
-                            <div className="mt-8 bg-red-50 text-red-700 p-4 rounded-lg border border-red-200">
-                                <p><strong>Oops!</strong> {error}</p>
+                            <div className="bg-red-50 text-red-700 p-6 rounded-2xl border-2 border-red-100 flex items-center space-x-4 mb-10 animate-fade-in-up-fast">
+                                <div className="text-3xl">⚠️</div>
+                                <p className="font-bold text-lg">{error}</p>
                             </div>
                         )}
 
                         {storyContent && !isGenerating && (
-                            <div className="mt-8 bg-gray-50 rounded-xl p-6 border animate-fade-in-up-fast">
-                                <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start mb-4">
-                                    <div className="mb-4 sm:mb-0">
-                                        <h3 className="font-bold text-xl text-gray-800 mb-2">{storyContent.type} Story</h3>
-                                        {voices.length > 0 && (
-                                            <div className="flex items-center">
-                                                <label htmlFor="voice-select" className="text-sm font-medium text-gray-600 mr-2">Narrator:</label>
+                            <div className="bg-teal-50 rounded-[2.5rem] p-10 md:p-16 border-2 border-teal-100 shadow-inner relative">
+                                <div className="flex flex-col md:flex-row justify-between items-center mb-12 gap-8">
+                                    <div className="flex-1 text-center md:text-left">
+                                        <div className="flex items-center space-x-2 mb-2 justify-center md:justify-start">
+                                             <span className="text-teal-600 font-bold uppercase tracking-widest text-xs">Narrator: {selectedVoice}</span>
+                                             <span className="text-gray-300">•</span>
+                                             <span className="text-teal-600 font-bold uppercase tracking-widest text-xs">Language: {storyContent.language}</span>
+                                        </div>
+                                        <h3 className="text-3xl font-bold text-gray-900 tracking-tight uppercase">A Tale of {day.title}</h3>
+                                        
+                                        <div className="mt-6 flex flex-wrap items-center justify-center md:justify-start gap-4">
+                                            <div className="flex items-center bg-white px-4 py-2 rounded-xl border border-gray-200 shadow-sm">
+                                                <label htmlFor="voice-select" className="text-xs font-bold text-gray-400 mr-3 uppercase">Persona</label>
                                                 <select
                                                     id="voice-select"
-                                                    value={selectedVoice?.name || ''}
-                                                    onChange={(e) => {
-                                                        const voice = voices.find(v => v.name === e.target.value);
-                                                        if (voice) setSelectedVoice(voice);
-                                                    }}
-                                                    className="w-full sm:w-auto text-sm rounded-md border-gray-300 shadow-sm focus:border-teal-500 focus:ring focus:ring-teal-200 focus:ring-opacity-50"
+                                                    value={selectedVoice}
+                                                    onChange={(e) => { stopAudio(); setSelectedVoice(e.target.value); }}
+                                                    className="bg-transparent text-sm font-bold text-gray-900 focus:outline-none uppercase"
                                                 >
-                                                    {voices.map(voice => (
-                                                        <option key={voice.name} value={voice.name}>
-                                                            {voice.name} ({voice.lang})
-                                                        </option>
-                                                    ))}
+                                                    {AVAILABLE_NARRATORS.map(v => ( <option key={v} value={v}>{v}</option> ))}
                                                 </select>
                                             </div>
-                                        )}
+                                            {lastCommand && (
+                                                <div className="text-xs font-bold text-teal-600 bg-white px-4 py-2 rounded-full border border-teal-100 shadow-sm uppercase">
+                                                    Command: "{lastCommand}"
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                    <button 
-                                        onClick={toggleSpeech} 
-                                        className="w-16 h-16 rounded-full bg-teal-500 text-white flex items-center justify-center shadow-lg hover:bg-teal-600 transition-colors focus:outline-none focus:ring-4 focus:ring-teal-300 self-center sm:self-start"
-                                        aria-label={isSpeaking ? "Pause story" : "Play story"}
-                                    >
-                                        {isSpeaking ? <PauseIcon /> : <PlayIcon />}
-                                    </button>
+                                    
+                                    <div className="flex flex-col items-center">
+                                        <button 
+                                            onClick={isSpeaking ? stopAudio : playAudio} 
+                                            className={`w-28 h-28 rounded-full flex items-center justify-center shadow-xl transition-all transform active:scale-95 ${isSpeaking ? 'bg-gray-800 text-white' : 'bg-teal-500 text-white hover:bg-teal-600'}`}
+                                            aria-label={isSpeaking ? "Pause" : "Play"}
+                                        >
+                                            {isSpeaking ? <PauseIcon /> : <PlayIcon />}
+                                        </button>
+                                        <span className="mt-4 text-[10px] font-bold uppercase text-gray-400 tracking-widest">
+                                            {isSpeaking ? 'Narrating...' : 'Listen to Story'}
+                                        </span>
+                                    </div>
                                 </div>
-                                <div className="prose prose-lg text-gray-700 max-w-none whitespace-pre-wrap leading-relaxed">
-                                    <p>{storyContent.text}</p>
+                                
+                                <div className="relative font-serif">
+                                    <div className="absolute -top-10 -left-6 text-9xl text-teal-500/10 opacity-30 select-none">“</div>
+                                    <div className="prose prose-xl text-gray-700 max-w-none leading-relaxed italic whitespace-pre-wrap px-8 relative z-10">
+                                        <p>{storyContent.text}</p>
+                                    </div>
+                                    <div className="absolute -bottom-16 -right-6 text-9xl text-teal-500/10 opacity-30 rotate-180 select-none">“</div>
                                 </div>
                             </div>
                         )}

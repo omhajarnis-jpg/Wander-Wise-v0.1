@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+
+import React, { useState, useEffect } from 'react';
 import Header from './Header';
 import type { TripDetails, User } from '../types';
 
@@ -11,6 +12,7 @@ interface TripPlannerProps {
   onLogout: () => void;
   onGoHome: () => void;
   onLogin: () => void;
+  onHelp: () => void;
 }
 
 interface PreferenceCardProps {
@@ -23,18 +25,18 @@ interface PreferenceCardProps {
 
 const PreferenceCard: React.FC<PreferenceCardProps> = ({ imageUrl, title, subtitle, onClick, titleFontClass }) => (
   <div className="text-center cursor-pointer group transition-all duration-300 ease-in-out transform hover:scale-105 active:scale-95" onClick={onClick}>
-    <div className="relative overflow-hidden rounded-2xl shadow-lg group-hover:shadow-xl transition-shadow duration-300">
+    <div className="relative overflow-hidden rounded-2xl shadow-lg group-hover:shadow-2xl transition-shadow duration-300 border-2 border-transparent group-hover:border-teal-500">
       <img
         src={imageUrl}
         alt={title}
         className="object-cover w-full h-64 md:h-80 transform group-hover:scale-110 transition-transform duration-300"
       />
-      <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-      <div className="absolute bottom-0 left-0 right-0 p-6 text-white">
-        <h3 className={`text-3xl font-bold ${titleFontClass || ''}`}>{title}</h3>
+      <div className="absolute inset-0 bg-gradient-to-t from-black/80 to-transparent"></div>
+      <div className="absolute bottom-0 left-0 right-0 p-6 text-white text-left">
+        <h3 className={`text-3xl font-bold ${titleFontClass || ''} tracking-tight`}>{title}</h3>
+        {subtitle && <p className="text-sm text-gray-300 mt-1 font-medium">{subtitle}</p>}
       </div>
     </div>
-    {subtitle && <p className="mt-3 text-sm text-gray-500">{subtitle}</p>}
   </div>
 );
 
@@ -82,10 +84,21 @@ const questionsData = [
       { title: 'Peaceful and calm places', imageUrl: 'https://thewandertherapy.com/wp-content/uploads/2024/06/3.places-to-visit-in-maharashtra.jpg' },
     ],
     gridCols: 'grid-cols-1 md:grid-cols-2',
+  },
+  {
+    id: 5,
+    question: "Who's your travel squad?",
+    key: 'buddyPreference',
+    options: [
+      { title: 'Traveling Solo', subtitle: 'Just me and my thoughts.', imageUrl: 'https://images.unsplash.com/photo-1501504905252-473c47e087f8?q=80&w=1974&auto=format&fit=crop', value: 'solo' },
+      { title: 'Family & Friends', subtitle: 'The more the merrier!', imageUrl: 'https://images.unsplash.com/photo-1529156069898-49953e39b3ac?q=80&w=1932&auto=format&fit=crop', value: 'friends' },
+      { title: 'Travel with a Buddy', subtitle: 'Meet strangers with shared interests.', imageUrl: 'https://images.unsplash.com/photo-1539635278303-d4002c07dee3?q=80&w=2070&auto=format&fit=crop', value: 'strangers' },
+    ],
+    gridCols: 'grid-cols-1 md:grid-cols-3',
   }
 ];
 
-const TripPlanner: React.FC<TripPlannerProps> = ({ onGeneratePlan, isLoading, error, isLoggedIn, user, onLogout, onGoHome, onLogin }) => {
+const TripPlanner: React.FC<TripPlannerProps> = ({ onGeneratePlan, isLoading, error, isLoggedIn, user, onLogout, onGoHome, onLogin, onHelp }) => {
   const [step, setStep] = useState(1);
   const [preferences, setPreferences] = useState({
     state: '',
@@ -93,11 +106,11 @@ const TripPlanner: React.FC<TripPlannerProps> = ({ onGeneratePlan, isLoading, er
     cuisine: '',
     vibe: '',
     duration: '7',
+    buddyPreference: 'solo' as 'solo' | 'friends' | 'strangers',
   });
 
   const handleSelection = (key: string, value: string) => {
     setPreferences(prev => ({...prev, [key]: value }));
-    // A small delay lets the click animation play before moving to the next step
     setTimeout(() => {
         setStep(prev => prev + 1);
     }, 200);
@@ -109,47 +122,49 @@ const TripPlanner: React.FC<TripPlannerProps> = ({ onGeneratePlan, isLoading, er
       onLogin();
       return;
     }
-    const combinedInterests = `Primary interest is ${preferences.interest}. Prefers ${preferences.cuisine} and enjoys ${preferences.vibe}.`;
+    const combinedInterests = `Primary interest is ${preferences.interest}. Prefers ${preferences.cuisine} and enjoys ${preferences.vibe}. Buddy preference: ${preferences.buddyPreference}.`;
     onGeneratePlan({
       destination: preferences.state,
       duration: `${preferences.duration} days`,
       interests: combinedInterests,
+      primaryInterest: preferences.interest,
+      buddyPreference: preferences.buddyPreference,
     });
   };
 
   const currentQuestion = questionsData[step - 1];
 
   return (
-    <div className="min-h-screen bg-gray-50 text-gray-800">
-      <Header isLoggedIn={isLoggedIn} user={user} onLogin={onLogin} onLogout={onLogout} onGoHome={onGoHome} variant="dark"/>
+    <div className="min-h-screen bg-gray-50 text-gray-900">
+      <Header isLoggedIn={isLoggedIn} user={user} onLogin={onLogin} onLogout={onLogout} onGoHome={onGoHome} onHelp={onHelp} variant="dark"/>
       <main className="container mx-auto px-4 py-12">
-        <div className="max-w-4xl mx-auto">
-          <div className="w-full bg-gray-200 rounded-full h-2.5 mb-8">
-            <div className="bg-teal-500 h-2.5 rounded-full transition-all duration-500 progress-bar-shimmer" style={{ width: `${(step / 5) * 100}%` }}></div>
+        <div className="max-w-6xl mx-auto">
+          <div className="w-full bg-gray-200 rounded-full h-3 mb-10 max-w-4xl mx-auto overflow-hidden">
+            <div className="bg-teal-500 h-full rounded-full transition-all duration-500 progress-bar-shimmer" style={{ width: `${(step / (questionsData.length + 1)) * 100}%` }}></div>
           </div>
           
           {step <= questionsData.length && currentQuestion && (
             <div key={step} className="animate-fade-in-up-fast">
-              <h2 className="text-3xl font-bold text-center mb-8">{currentQuestion.question}</h2>
-              <div className={`grid ${currentQuestion.gridCols} gap-6 md:gap-8`}>
+              <h2 className="text-4xl font-black text-center mb-10 tracking-tight uppercase">{currentQuestion.question}</h2>
+              <div className={`grid ${currentQuestion.gridCols} gap-8 md:gap-10`}>
                 {currentQuestion.options.map(option => (
                   <PreferenceCard
                     key={option.title}
                     {...option}
-                    onClick={() => handleSelection(currentQuestion.key, option.title)}
+                    onClick={() => handleSelection(currentQuestion.key, (option as any).value || option.title)}
                   />
                 ))}
               </div>
             </div>
           )}
 
-          {step === 5 && (
-             <div className="animate-fade-in-up-fast max-w-lg mx-auto bg-white rounded-2xl shadow-lg p-8">
-                <h2 className="text-3xl font-bold text-center mb-2">Almost there!</h2>
-                <p className="text-center text-gray-500 mb-8">Just one last detail to perfect your adventure.</p>
-                <form onSubmit={handleSubmit} className="space-y-6">
+          {step === 6 && (
+             <div className="animate-fade-in-up-fast max-w-lg mx-auto bg-white rounded-3xl shadow-2xl p-10 border border-gray-100">
+                <h2 className="text-3xl font-black text-center mb-2 uppercase tracking-tight">Last detail!</h2>
+                <p className="text-center text-gray-500 mb-10 font-medium">How long will your adventure be?</p>
+                <form onSubmit={handleSubmit} className="space-y-8">
                     <div>
-                        <label htmlFor="duration" className="block text-sm font-medium text-gray-700 mb-2">What's the duration of your trip?</label>
+                        <label htmlFor="duration" className="block text-sm font-bold text-gray-700 mb-3 uppercase tracking-widest">Duration (in days)</label>
                         <input
                             type="number"
                             id="duration"
@@ -158,22 +173,22 @@ const TripPlanner: React.FC<TripPlannerProps> = ({ onGeneratePlan, isLoading, er
                             min="1"
                             max="10"
                             placeholder="e.g., 7"
-                            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-teal-500 focus:border-teal-500"
+                            className="w-full px-6 py-4 bg-gray-50 border border-gray-200 rounded-xl focus:ring-teal-500 focus:border-teal-500 font-bold text-xl"
                             required
                         />
-                        <p className="text-xs text-gray-500 mt-1">Maximum 10 days.</p>
+                        <p className="text-xs text-gray-400 mt-2 font-medium">Plan up to 10 days of discovery.</p>
                     </div>
 
-                    {error && <p className="text-red-500 text-sm text-center">{error}</p>}
+                    {error && <p className="text-red-600 text-sm font-bold text-center bg-red-50 p-3 rounded-lg border border-red-100">{error}</p>}
 
                     <button
                         type="submit"
                         disabled={isLoading && isLoggedIn}
-                        className="w-full bg-teal-500 text-white font-bold py-3 px-4 rounded-lg hover:bg-teal-600 focus:outline-none focus:ring-4 focus:ring-teal-300 disabled:bg-teal-300 flex items-center justify-center transition-colors"
+                        className="w-full bg-teal-500 text-white font-black py-4 px-6 rounded-xl hover:bg-teal-600 focus:outline-none focus:ring-4 focus:ring-teal-300 disabled:bg-teal-300 flex items-center justify-center transition-all duration-300 shadow-xl uppercase tracking-widest"
                     >
                         {isLoading && isLoggedIn ? (
                             <>
-                                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <svg className="animate-spin -ml-1 mr-3 h-6 w-6 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                                 </svg>

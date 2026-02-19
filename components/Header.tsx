@@ -2,6 +2,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import type { User } from '../types';
 import UserIcon from './icons/UserIcon';
+import HelpIcon from './icons/HelpIcon'; // NEW: Import HelpIcon
 
 // FIX: Add optional variant prop to support different color schemes
 interface HeaderProps {
@@ -10,10 +11,11 @@ interface HeaderProps {
   onLogin: () => void;
   onLogout: () => void;
   onGoHome: () => void;
+  onHelp: () => void; // NEW: Add onHelp prop
   variant?: 'light' | 'dark';
 }
 
-const Header: React.FC<HeaderProps> = ({ isLoggedIn, user, onLogin, onLogout, onGoHome, variant = 'light' }) => {
+const Header: React.FC<HeaderProps> = ({ isLoggedIn, user, onLogin, onLogout, onGoHome, onHelp, variant = 'light' }) => {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const profileRef = useRef<HTMLDivElement>(null);
 
@@ -30,6 +32,9 @@ const Header: React.FC<HeaderProps> = ({ isLoggedIn, user, onLogin, onLogout, on
   }, []);
 
   const isDark = variant === 'dark';
+  const buttonBaseClasses = `font-semibold py-2 px-6 rounded-full border transition-colors duration-300`;
+  const buttonDarkClasses = `bg-gray-100 hover:bg-gray-200 text-gray-800 border-gray-300`;
+  const buttonLightClasses = `bg-white bg-opacity-10 hover:bg-opacity-20 text-white border-white border-opacity-30`;
 
   return (
     <header className={`py-6 px-4 sm:px-6 lg:px-8 ${isDark ? 'text-gray-800' : 'text-white'}`}>
@@ -79,12 +84,19 @@ const Header: React.FC<HeaderProps> = ({ isLoggedIn, user, onLogin, onLogout, on
           </button>
         </div>
 
-        {/* Right Section: Login (when logged out) */}
-        <div className="w-1/3 text-right">
+        {/* Right Section: Login / Help */}
+        <div className="w-1/3 text-right flex justify-end items-center space-x-4">
+          <button
+              onClick={onHelp}
+              aria-label="Emergency Help"
+              className={`p-2 rounded-full transition-colors duration-300 ${isDark ? 'hover:bg-red-100 text-red-600' : 'hover:bg-white hover:bg-opacity-20 text-white'}`}
+          >
+              <HelpIcon className="w-7 h-7" />
+          </button>
           {!isLoggedIn && (
             <button
               onClick={onLogin}
-              className={`font-semibold py-2 px-6 rounded-full border transition-colors duration-300 ${isDark ? 'bg-gray-100 hover:bg-gray-200 text-gray-800 border-gray-300' : 'bg-white bg-opacity-10 hover:bg-opacity-20 text-white border-white border-opacity-30'}`}
+              className={`${buttonBaseClasses} ${isDark ? buttonDarkClasses : buttonLightClasses}`}
             >
               Login / Sign Up
             </button>

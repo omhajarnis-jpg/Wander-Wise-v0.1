@@ -1,25 +1,27 @@
+
 import React, { useState } from 'react';
 import HomePage from './components/HomePage';
 import LoginModal from './components/LoginModal';
 import TripPlanner from './components/TripPlanner';
 import ItineraryDisplay from './components/ItineraryDisplay';
 import TripDetailsPage from './components/TripDetailsPage';
-import StorybookDisplay from './components/StorybookDisplay'; // NEW: Import Storybook component
+import StorybookDisplay from './components/StorybookDisplay';
+import EmergencyModal from './components/EmergencyModal'; // NEW: Import EmergencyModal
 import { generateItinerary, generateStorybook } from './services/geminiService';
 import type { User, TripDetails, Itinerary, DayPlan, Storybook } from './types';
 
-type View = 'home' | 'planner' | 'itinerary' | 'details' | 'storybook'; // NEW: Add storybook view
+type View = 'home' | 'planner' | 'itinerary' | 'details' | 'storybook';
 
 const App: React.FC = () => {
   const [view, setView] = useState<View>('home');
   const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
   const [user, setUser] = useState<User | null>(null);
   const [showLoginModal, setShowLoginModal] = useState<boolean>(false);
+  const [showEmergencyModal, setShowEmergencyModal] = useState<boolean>(false); // NEW: State for Emergency Modal
   const [itinerary, setItinerary] = useState<Itinerary | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [selectedDay, setSelectedDay] = useState<DayPlan | null>(null);
-  // NEW: State for trip details and storybook
   const [tripDetails, setTripDetails] = useState<TripDetails | null>(null);
   const [storybook, setStorybook] = useState<Storybook | null>(null);
 
@@ -44,7 +46,7 @@ const App: React.FC = () => {
     setView('home');
     setItinerary(null);
     setError(null);
-    setStorybook(null); // NEW: Reset storybook
+    setStorybook(null);
   };
 
   const handleGeneratePlan = async (details: TripDetails) => {
@@ -54,7 +56,7 @@ const App: React.FC = () => {
     }
     setIsLoading(true);
     setError(null);
-    setTripDetails(details); // NEW: Save trip details
+    setTripDetails(details);
     try {
       const generatedItinerary = await generateItinerary(details);
       setItinerary(generatedItinerary);
@@ -78,10 +80,9 @@ const App: React.FC = () => {
 
   const handleBackToPlanner = () => {
     setView('planner');
-    setItinerary(null); // NEW: Clear itinerary when going back to planner
+    setItinerary(null);
   };
 
-  // NEW: Handler to generate the storybook
   const handleCreateStorybook = async () => {
     if (!itinerary || !tripDetails) return;
     setIsLoading(true);
@@ -92,10 +93,14 @@ const App: React.FC = () => {
         setView('storybook');
     } catch (e) {
         const errorMessage = e instanceof Error ? e.message : 'An unknown error occurred.';
-        setError(errorMessage); // Can be displayed on the itinerary page
+        setError(errorMessage);
     } finally {
         setIsLoading(false);
     }
+  };
+  
+  const handleHelp = () => {
+    setShowEmergencyModal(true);
   };
 
   const renderView = () => {
@@ -111,20 +116,23 @@ const App: React.FC = () => {
             onLogin={() => setShowLoginModal(true)}
             onLogout={handleLogout}
             onGoHome={handleGoHome}
+            onHelp={handleHelp} // NEW: Pass handler
           />
         );
       case 'itinerary':
         return (
           <ItineraryDisplay
             itinerary={itinerary}
+            tripDetails={tripDetails}
             onKnowMore={handleKnowMore}
             onBackToPlanner={handleBackToPlanner}
-            onGenerateStorybook={handleCreateStorybook} // NEW: Pass handler
-            isGeneratingStorybook={isLoading} // NEW: Pass loading state
+            onGenerateStorybook={handleCreateStorybook}
+            isGeneratingStorybook={isLoading}
             isLoggedIn={isLoggedIn}
             user={user}
             onLogout={handleLogout}
             onGoHome={handleGoHome}
+            onHelp={handleHelp} // NEW: Pass handler
           />
         );
       case 'details':
@@ -136,9 +144,9 @@ const App: React.FC = () => {
                 user={user}
                 onLogout={handleLogout}
                 onGoHome={handleGoHome}
+                onHelp={handleHelp} // NEW: Pass handler
             />
         );
-      // NEW: Case for storybook view
       case 'storybook':
         return (
             <StorybookDisplay
@@ -156,6 +164,7 @@ const App: React.FC = () => {
             onLogin={() => setShowLoginModal(true)}
             onLogout={handleLogout}
             onGoHome={handleGoHome}
+            onHelp={handleHelp} // NEW: Pass handler
           />
         );
     }
@@ -169,6 +178,9 @@ const App: React.FC = () => {
           onClose={() => setShowLoginModal(false)}
           onAuthenticate={handleAuthentication}
         />
+      )}
+      {showEmergencyModal && (
+        <EmergencyModal onClose={() => setShowEmergencyModal(false)} />
       )}
     </div>
   );

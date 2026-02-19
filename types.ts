@@ -1,15 +1,26 @@
 
-
 export interface User {
   name: string;
   email: string;
   mobile: string;
 }
 
+export interface TravelBuddy {
+  id: string;
+  name: string;
+  age: number;
+  bio: string;
+  avatar: string;
+  interests: string[];
+  compatibility: number;
+}
+
 export interface TripDetails {
   destination: string;
   duration: string;
   interests: string;
+  primaryInterest: string;
+  buddyPreference: 'solo' | 'friends' | 'strangers';
 }
 
 export interface Activity {
@@ -18,24 +29,27 @@ export interface Activity {
   location?: string;
 }
 
-// NEW: Add FoodSuggestion interface
 export interface FoodSuggestion {
   name:string;
   description: string;
   imageUrl: string;
 }
 
-// NEW: Add NearbySuggestion interface
 export interface NearbySuggestion {
   name: string;
   description: string;
 }
 
+export interface GroundingSource {
+  title: string;
+  uri: string;
+}
+
 export interface DayPlan {
   day: number;
   title: string;
+  summary: string;
   activities: Activity[];
-  // NEW fields
   dayImage: string;
   foodSuggestion: FoodSuggestion;
   nearbySuggestion?: NearbySuggestion;
@@ -45,27 +59,15 @@ export interface DayPlan {
   };
 }
 
-// NEW: Add weather forecast types
-export interface DailyForecast {
-  dayOfWeek: string;
-  icon: 'sunny' | 'cloudy' | 'partly-cloudy' | 'rain' | 'storm';
-  highTemp: number;
-  lowTemp: number;
-  description: string;
-}
-
-export interface WeatherForecast {
-  daily: DailyForecast[];
-}
-
 export interface Itinerary {
   tripTitle: string;
   bestTimeToVisit: string;
+  climate: string;
   days: DayPlan[];
-  weatherForecast?: WeatherForecast;
+  suggestedBuddies?: TravelBuddy[];
+  sources?: GroundingSource[];
 }
 
-// NEW: Add Storybook types
 export interface StorybookPage {
   day: number;
   title: string;
@@ -77,4 +79,15 @@ export interface Storybook {
   title: string;
   coverImage: string;
   pages: StorybookPage[];
+}
+
+export interface DailyForecast {
+  dayOfWeek: string;
+  icon: 'sunny' | 'cloudy' | 'partly-cloudy' | 'rain' | 'storm';
+  highTemp: number;
+  lowTemp: number;
+}
+
+export interface WeatherForecast {
+  daily: DailyForecast[];
 }

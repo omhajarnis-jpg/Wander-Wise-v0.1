@@ -1,8 +1,8 @@
+
 import React, { useState, useRef, useEffect } from 'react';
-import type { Itinerary, User, DayPlan } from '../types';
+import type { Itinerary, User, DayPlan, TripDetails, TravelBuddy } from '../types';
 import Footer from './Footer';
-import L from 'leaflet';
-import WeatherForecastDisplay from './WeatherForecastDisplay';
+import Header from './Header';
 
 // Icons
 const CalendarIcon = () => (
@@ -20,26 +20,32 @@ const StarIcon = () => (
         <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
     </svg>
 );
-const PinIcon = () => (
-    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-1.5 inline-block text-gray-400" viewBox="0 0 20 20" fill="currentColor">
-        <path fillRule="evenodd" d="M5.05 4.05a7 7 0 119.9 9.9L10 18.9l-4.95-4.95a7 7 0 010-9.9zM10 11a2 2 0 100-4 2 2 0 000 4z" clipRule="evenodd" />
-    </svg>
-);
 const MapIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2" viewBox="0 0 20 20" fill="currentColor">
         <path fillRule="evenodd" d="M12 1.586l-4 4v12.828l4-4V1.586zM3.707 3.293A1 1 0 002 4v12a1 1 0 00.293.707l6 6a1 1 0 001.414 0l6-6A1 1 0 0018 16V4a1 1 0 00-.293-.707l-6-6a1 1 0 00-1.414 0l-6 6z" clipRule="evenodd" />
     </svg>
 );
-
 const StorybookIcon = () => (
     <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
     </svg>
 );
 
+const HeartIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 text-pink-500" viewBox="0 0 20 20" fill="currentColor">
+        <path fillRule="evenodd" d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" clipRule="evenodd" />
+    </svg>
+);
+
+const ExternalLinkIcon = () => (
+    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+    </svg>
+);
 
 interface ItineraryDisplayProps {
   itinerary: Itinerary | null;
+  tripDetails: TripDetails | null;
   onKnowMore: (day: DayPlan) => void;
   onBackToPlanner: () => void;
   isLoggedIn: boolean;
@@ -48,25 +54,32 @@ interface ItineraryDisplayProps {
   onGoHome: () => void;
   onGenerateStorybook: () => void;
   isGeneratingStorybook: boolean;
+  onHelp: () => void;
 }
 
-const ItineraryDisplay: React.FC<ItineraryDisplayProps> = ({ itinerary, onKnowMore, onBackToPlanner, isLoggedIn, user, onLogout, onGoHome, onGenerateStorybook, isGeneratingStorybook }) => {
+const ItineraryDisplay: React.FC<ItineraryDisplayProps> = ({ 
+  itinerary, 
+  tripDetails, 
+  onKnowMore, 
+  onBackToPlanner, 
+  isLoggedIn, 
+  user, 
+  onLogout, 
+  onGoHome, 
+  onGenerateStorybook, 
+  isGeneratingStorybook,
+  onHelp
+}) => {
   const [heroImageUrl, setHeroImageUrl] = useState(itinerary?.days[0]?.dayImage || 'https://images.unsplash.com/photo-1501785888041-af3ef285b470?q=80&w=2070&auto=format&fit=crop');
   const [isMapVisible, setIsMapVisible] = useState(false);
   
   const daySectionsRef = useRef<(HTMLElement | null)[]>([]);
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const mapRef = useRef<L.Map | null>(null);
+  const mapRef = useRef<any>(null);
 
   useEffect(() => {
     if (!itinerary) return;
-
-    const observerOptions = {
-      root: null,
-      rootMargin: '0px',
-      threshold: 0.5 
-    };
-
+    const observerOptions = { root: null, rootMargin: '0px', threshold: 0.5 };
     const observerCallback = (entries: IntersectionObserverEntry[]) => {
       entries.forEach(entry => {
         if (entry.isIntersecting) {
@@ -77,196 +90,242 @@ const ItineraryDisplay: React.FC<ItineraryDisplayProps> = ({ itinerary, onKnowMo
         }
       });
     };
-
     const observer = new IntersectionObserver(observerCallback, observerOptions);
     const currentRefs = daySectionsRef.current;
-    currentRefs.forEach(ref => {
-      if (ref) observer.observe(ref);
-    });
-
-    return () => {
-      currentRefs.forEach(ref => {
-        if (ref) observer.unobserve(ref);
-      });
-    };
+    currentRefs.forEach(ref => { if (ref) observer.observe(ref); });
+    return () => { currentRefs.forEach(ref => { if (ref) observer.unobserve(ref); }); };
   }, [itinerary]);
   
   useEffect(() => {
     if (isMapVisible && mapContainerRef.current && itinerary && !mapRef.current) {
         const L = (window as any).L;
         if (!L) return;
-
         const map = L.map(mapContainerRef.current).setView([19.7515, 75.7139], 6);
-        
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+            attribution: '&copy; OpenStreetMap'
         }).addTo(map);
-
-        const markers: L.Marker[] = [];
-        itinerary.days.forEach(day => {
+        const markers: any[] = [];
+        itinerary.days.forEach((day, index) => {
             const marker = L.marker([day.coords.lat, day.coords.lng]).addTo(map)
-                .bindPopup(`<b>Day ${day.day}: ${day.title}</b>`);
+                .bindPopup(`
+                  <div class="text-gray-900 p-2">
+                    <p class="font-bold text-teal-600 mb-1">Day ${day.day}: ${day.title}</p>
+                    <p class="text-sm">${day.summary || 'Exploring this beautiful destination.'}</p>
+                    <p class="text-[10px] text-gray-400 mt-1 uppercase font-bold tracking-tighter">Click to scroll to day</p>
+                  </div>
+                `);
+            marker.on('click', () => {
+                const element = daySectionsRef.current[index];
+                if (element) { element.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+            });
             markers.push(marker);
         });
-        
         if (markers.length > 0) {
             const group = L.featureGroup(markers);
             map.fitBounds(group.getBounds().pad(0.5));
         }
-
         mapRef.current = map;
     }
   }, [isMapVisible, itinerary]);
 
+  if (!itinerary) return null;
 
-  if (!itinerary) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-screen bg-gray-50 text-gray-800">
-        <h2 className="text-2xl font-bold mb-4">No Itinerary Found</h2>
-        <button onClick={onGoHome} className="px-6 py-2 bg-teal-500 text-white font-semibold rounded-lg hover:bg-teal-600">
-          Plan a Trip
-        </button>
-      </div>
-    );
-  }
+  const buddies = itinerary.suggestedBuddies || [];
+  const sources = itinerary.sources || [];
 
   return (
-    <div className="bg-gray-900">
-       <div 
-        className="relative h-screen flex flex-col items-center justify-center text-white text-center px-4 bg-cover bg-center bg-fixed hero-background"
-        style={{ backgroundImage: `url(${heroImageUrl})` }}
-      >
-        <div className="absolute inset-0 bg-black bg-opacity-50"></div>
+    <div className="bg-gray-50 text-gray-900 min-h-screen font-sans">
+      <div className="relative h-[65vh] overflow-hidden hero-background shadow-inner">
+        <img 
+          src={heroImageUrl} 
+          alt="Destination" 
+          className="absolute inset-0 w-full h-full object-cover transition-all duration-1000 ease-in-out" 
+        />
+        <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent"></div>
+        <Header 
+          isLoggedIn={isLoggedIn} 
+          user={user} 
+          onLogin={() => {}} 
+          onLogout={onLogout} 
+          onGoHome={onGoHome} 
+          onHelp={onHelp} 
+          variant="light" 
+        />
         
-        <button
-            onClick={onBackToPlanner}
-            className="absolute top-8 left-4 sm:left-6 lg:left-8 z-20 text-left focus:outline-none group"
-            aria-label="Go back to planner"
-        >
-            <h2 className="text-3xl md:text-4xl font-bold tracking-wider text-white group-hover:text-teal-300 transition-colors">
-                Wander Wise
-            </h2>
-            <p className="text-xs tracking-widest italic text-gray-300 group-hover:text-white transition-colors">
-                Miles Brings Smiles...
-            </p>
-        </button>
-
-        <div className="relative z-10 animate-fade-in-up-fast">
-          <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight">{itinerary.tripTitle}</h1>
-          <p className="mt-4 text-xl md:text-2xl text-gray-300">Your personalized adventure awaits!</p>
-        </div>
-      </div>
-      
-      <div className="bg-gray-800 text-white py-12 px-4">
-        <div className="container mx-auto text-center">
-            <button
-                onClick={() => setIsMapVisible(!isMapVisible)}
-                className="bg-teal-500 hover:bg-teal-600 text-white font-bold py-3 px-6 rounded-full transition-colors inline-flex items-center shadow-lg"
-                aria-controls="map-container"
-                aria-expanded={isMapVisible}
-            >
-                <MapIcon />
-                {isMapVisible ? 'Hide Map View' : 'Show Trip on Map'}
-            </button>
-            {isMapVisible && (
-                <div id="map-container" className="mt-8 animate-fade-in-up-fast max-w-5xl mx-auto">
-                    <div ref={mapContainerRef} className="leaflet-container shadow-2xl"></div>
-                </div>
-            )}
-        </div>
-      </div>
-
-      {itinerary.weatherForecast && <WeatherForecastDisplay forecast={itinerary.weatherForecast} />}
-
-      {itinerary.days.map((day, index) => (
-        <section 
-          key={day.day} 
-          ref={(el) => { daySectionsRef.current[index] = el; }}
-          className="relative min-h-screen flex items-center justify-center py-20 px-4 bg-cover bg-center bg-fixed"
-          style={{ backgroundImage: `url(${day.dayImage})` }}
-        >
-          <div className="absolute inset-0 bg-black bg-opacity-60"></div>
-          <div className="relative z-10 container mx-auto flex justify-center animate-fade-in-up-fast">
-
-            <div className="bg-slate-50 bg-opacity-95 backdrop-blur-lg rounded-2xl shadow-2xl overflow-hidden max-w-4xl w-full text-slate-800">
-               <div className="p-8 md:p-12">
-                  <h3 className="text-4xl font-bold text-teal-600 mb-6">Day {day.day}: {day.title}</h3>
-                  
-                  <div className="grid md:grid-cols-2 gap-8">
-                    <div>
-                        <h4 className="text-2xl font-semibold mb-4 border-b-2 border-teal-200 pb-2">Your Day's Plan</h4>
-                        <ul className="space-y-4">
-                            {day.activities.map((activity, actIndex) => (
-                                <li key={actIndex} className="flex items-start">
-                                    <div className="flex-shrink-0 w-24 text-right text-slate-600 font-semibold">{activity.time}</div>
-                                    <div className="ml-4 flex-grow border-l-2 border-slate-300 pl-4">
-                                        <p className="font-semibold text-slate-900">{activity.description}</p>
-                                        {activity.location && (
-                                            <p className="text-sm text-slate-500 flex items-center mt-1"><PinIcon /> {activity.location}</p>
-                                        )}
-                                    </div>
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-
-                    <div className="space-y-6">
-                        <div className="bg-orange-50 rounded-lg p-4 border border-orange-200">
-                            <h4 className="font-bold text-lg text-orange-800 mb-2 flex items-center"><FoodIcon /> Taste of {day.title.split("'")[0]}</h4>
-                            <div className="flex items-center space-x-4">
-                                <img src={day.foodSuggestion.imageUrl} alt={day.foodSuggestion.name} className="w-24 h-24 object-cover rounded-md shadow-sm"/>
-                                <div>
-                                    <h5 className="font-bold text-md text-orange-900">{day.foodSuggestion.name}</h5>
-                                    <p className="text-sm text-orange-700 mt-1">{day.foodSuggestion.description}</p>
-                                </div>
-                            </div>
-                        </div>
-
-                        <div className="bg-teal-50 rounded-lg p-4 border border-teal-200">
-                            <h4 className="font-bold text-lg text-teal-800 flex items-center"><CalendarIcon /> Best Time to Visit</h4>
-                            <p className="text-teal-700 mt-1">{itinerary.bestTimeToVisit}</p>
-                        </div>
-
-                        {day.nearbySuggestion && (
-                            <div className="bg-amber-50 rounded-lg p-4 border border-amber-200">
-                                <h4 className="font-bold text-lg text-amber-800 flex items-center"><StarIcon /> Don't Miss Nearby!</h4>
-                                <p className="text-amber-700 mt-1"><strong>{day.nearbySuggestion.name}:</strong> {day.nearbySuggestion.description}</p>
-                            </div>
-                        )}
-                         <button
-                            onClick={() => onKnowMore(day)}
-                            className="w-full mt-4 px-6 py-3 bg-slate-800 text-white font-bold text-lg rounded-lg shadow-md hover:bg-slate-900 focus:outline-none focus:ring-4 focus:ring-slate-400 transition-all transform hover:scale-105"
-                          >
-                            Know More About Your Trip
-                          </button>
-                    </div>
-                  </div>
-              </div>
+        <div className="absolute bottom-16 left-0 right-0 px-4 sm:px-6 lg:px-8">
+          <div className="container mx-auto">
+            <h1 className="text-5xl md:text-7xl font-black text-white mb-4 drop-shadow-2xl tracking-tighter leading-tight">{itinerary.tripTitle}</h1>
+            <div className="flex flex-wrap items-center gap-5 text-white/90 text-sm md:text-base">
+                <span className="flex items-center bg-white/10 backdrop-blur-xl px-5 py-2 rounded-full border border-white/20 shadow-xl font-bold uppercase tracking-widest text-xs">
+                    <CalendarIcon /> {tripDetails?.duration}
+                </span>
+                <span className="flex items-center bg-white/10 backdrop-blur-xl px-5 py-2 rounded-full border border-white/20 shadow-xl font-bold uppercase tracking-widest text-xs">
+                    <StarIcon /> {tripDetails?.primaryInterest}
+                </span>
+                {tripDetails?.buddyPreference === 'strangers' && (
+                   <span className="flex items-center bg-pink-500/20 backdrop-blur-xl px-5 py-2 rounded-full border border-pink-500/30 shadow-xl font-bold uppercase tracking-widest text-xs">
+                      <HeartIcon /> Buddy Matching Active
+                   </span>
+                )}
             </div>
           </div>
-        </section>
-      ))}
-       <button
-        onClick={onGenerateStorybook}
-        disabled={isGeneratingStorybook}
-        className="fixed bottom-8 right-8 bg-gradient-to-r from-teal-500 to-cyan-500 text-white font-bold rounded-full p-4 shadow-lg hover:shadow-2xl focus:outline-none focus:ring-4 focus:ring-cyan-300 transform hover:scale-105 transition-all duration-300 ease-in-out z-30 flex items-center space-x-3 disabled:opacity-70 disabled:cursor-wait"
-        aria-label="Create My Storybook"
-      >
-        {isGeneratingStorybook ? (
-          <>
-            <svg className="animate-spin h-6 w-6" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-            </svg>
-            <span className="hidden md:inline pr-2">Crafting...</span>
-          </>
-        ) : (
-          <>
-            <StorybookIcon />
-            <span className="hidden md:inline pr-2">Create My Storybook</span>
-          </>
-        )}
-      </button>
+        </div>
+      </div>
+
+      <main className="container mx-auto px-4 py-16">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-16">
+          <div className="lg:col-span-1">
+            <div className="sticky top-10 space-y-8">
+              {tripDetails?.buddyPreference === 'strangers' && buddies.length > 0 && (
+                <div className="bg-white rounded-[2rem] shadow-sm p-8 border border-pink-100 relative overflow-hidden">
+                  <h3 className="text-xl font-black mb-6 flex items-center text-pink-600 uppercase tracking-widest">
+                      <HeartIcon />
+                      Travel Buddies
+                  </h3>
+                  <div className="space-y-5">
+                    {buddies.map(buddy => (
+                      <div key={buddy.id} className="flex items-center space-x-4 p-4 bg-pink-50 rounded-2xl border border-pink-100 hover:shadow-lg transition-all cursor-pointer">
+                        <img src={buddy.avatar} alt={buddy.name} className="w-14 h-14 rounded-full object-cover border-2 border-pink-200" />
+                        <div className="flex-1 min-w-0">
+                          <p className="font-bold text-gray-900 truncate">{buddy.name}, {buddy.age}</p>
+                          <div className="flex items-center mt-1">
+                            <span className="text-xs text-pink-500 font-bold">{buddy.compatibility}% Match</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="bg-white rounded-[2rem] shadow-sm p-8 border border-gray-200">
+                <h3 className="text-xl font-black mb-6 flex items-center uppercase tracking-widest">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-3 text-teal-500" viewBox="0 0 20 20" fill="currentColor">
+                        <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                    </svg>
+                    Trip Essentials
+                </h3>
+                <div className="space-y-6">
+                  <div>
+                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Best Time to Visit</h4>
+                    <p className="text-gray-700 text-sm leading-relaxed">{itinerary.bestTimeToVisit}</p>
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2">Climate</h4>
+                    <p className="text-gray-700 text-sm leading-relaxed">{itinerary.climate}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="bg-white rounded-[2rem] shadow-sm p-8 border border-gray-200">
+                <h3 className="text-xl font-black mb-6 uppercase tracking-widest">Navigation</h3>
+                <div className="flex flex-col space-y-4">
+                   <button 
+                    onClick={() => setIsMapVisible(!isMapVisible)}
+                    className="flex items-center justify-center w-full px-6 py-4 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-2xl font-bold transition-all"
+                   >
+                     <MapIcon /> {isMapVisible ? 'Hide Route Map' : 'View Route Map'}
+                   </button>
+                   <button 
+                    onClick={onGenerateStorybook}
+                    disabled={isGeneratingStorybook}
+                    className="flex items-center justify-center w-full px-6 py-4 bg-teal-500 text-white rounded-2xl font-bold shadow-md hover:bg-teal-600 transition-all transform hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed uppercase tracking-widest text-xs"
+                   >
+                     {isGeneratingStorybook ? (
+                        <svg className="animate-spin h-5 w-5 mr-3 text-white" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                        </svg>
+                     ) : <StorybookIcon />}
+                     <span className="ml-2">Create My Storybook</span>
+                   </button>
+                   <button onClick={onBackToPlanner} className="text-teal-600 hover:underline text-center font-medium mt-2">
+                     Edit Preferences
+                   </button>
+                </div>
+              </div>
+
+              {sources.length > 0 && (
+                <div className="bg-teal-50 rounded-[2rem] p-8 border border-teal-100 shadow-sm">
+                  <h3 className="text-xs font-black text-teal-800 uppercase tracking-widest mb-6 flex items-center">
+                    <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                    </svg>
+                    Verified Sources
+                  </h3>
+                  <ul className="space-y-4">
+                    {sources.slice(0, 5).map((source, idx) => (
+                      <li key={idx}>
+                        <a href={source.uri} target="_blank" rel="noopener noreferrer" className="text-xs text-teal-700 hover:text-teal-900 font-bold flex items-start group">
+                          <span className="truncate max-w-[200px]">{source.title}</span>
+                          <ExternalLinkIcon />
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {isMapVisible && (
+                <div className="bg-white rounded-[2rem] shadow-lg p-3 border border-gray-100 animate-fade-in-up-fast">
+                   <div ref={mapContainerRef} className="rounded-xl overflow-hidden h-72 w-full"></div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="lg:col-span-2 space-y-16">
+            {itinerary.days.map((day, index) => (
+              <section 
+                key={day.day} 
+                // FIX: Ref callback should return void to satisfy TypeScript in newer React versions
+                ref={el => { daySectionsRef.current[index] = el; }}
+                className="bg-white rounded-[3rem] shadow-sm border border-gray-100 overflow-hidden group transition-all duration-300 hover:shadow-lg scroll-mt-24"
+              >
+                <div className="grid grid-cols-1 md:grid-cols-2">
+                  <div className="h-72 md:h-auto overflow-hidden">
+                    <img 
+                      src={day.dayImage} 
+                      alt={day.title} 
+                      className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" 
+                    />
+                  </div>
+                  <div className="p-10 flex flex-col justify-between">
+                    <div>
+                      <span className="inline-block px-4 py-1 bg-teal-100 text-teal-700 rounded-full text-xs font-bold uppercase tracking-widest mb-4">Day {day.day}</span>
+                      <h2 className="text-3xl font-bold mb-6 text-gray-900 leading-tight">{day.title}</h2>
+                      <div className="space-y-4 mb-8">
+                        {day.activities.slice(0, 3).map((act, i) => (
+                          <div key={i} className="flex items-start">
+                            <span className="text-teal-500 font-bold text-xs mt-1 w-20 flex-shrink-0 uppercase tracking-widest">{act.time}</span>
+                            <p className="text-gray-600 text-sm font-medium">{act.description}</p>
+                          </div>
+                        ))}
+                      </div>
+                      <div className="bg-orange-50 rounded-2xl p-6 border border-orange-100 mb-8 shadow-inner">
+                        <div className="flex items-center mb-2">
+                            <FoodIcon />
+                            <h4 className="font-bold text-sm text-orange-800 uppercase tracking-widest">Local Taste</h4>
+                        </div>
+                        <p className="text-orange-900 font-bold text-lg mb-1">{day.foodSuggestion.name}</p>
+                        <p className="text-xs text-orange-700 italic">{day.foodSuggestion.description}</p>
+                      </div>
+                    </div>
+                    <button 
+                      onClick={() => onKnowMore(day)}
+                      className="w-full py-4 bg-teal-500 text-white rounded-2xl font-bold hover:bg-teal-600 transition-all flex items-center justify-center space-x-2 shadow-md uppercase tracking-widest text-xs"
+                    >
+                      <span>Explore Details</span>
+                      <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14 5l7 7m0 0l-7 7m7-7H3" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </section>
+            ))}
+          </div>
+        </div>
+      </main>
       <Footer />
     </div>
   );
